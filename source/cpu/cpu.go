@@ -22,6 +22,7 @@ import (
 	"regexp"
 
 	"github.com/golang/glog"
+	"github.com/kubernetes-incubator/node-feature-discovery/source"
 )
 
 // Implement FeatureSource interface
@@ -29,15 +30,15 @@ type Source struct{}
 
 func (s Source) Name() string { return "cpu" }
 
-func (s Source) Discover() ([]string, error) {
-	features := []string{}
+func (s Source) Discover() (source.Features, error) {
+	features := source.Features{}
 
 	// Check if hyper-threading seems to be enabled
 	found, err := haveThreadSiblings()
 	if err != nil {
 		glog.Errorf("Failed to determine thread siblings: %v", err)
 	} else if found {
-		features = append(features, "logical-cpus")
+		features["logical-cpus"] = true
 	}
 	return features, nil
 }

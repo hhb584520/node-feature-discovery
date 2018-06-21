@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+	"github.com/kubernetes-incubator/node-feature-discovery/source"
 )
 
 // Source implements FeatureSource.
@@ -34,8 +35,8 @@ type Source struct{}
 func (s Source) Name() string { return "memory" }
 
 // Discover returns feature names for memory: numa if more than one memory node is present.
-func (s Source) Discover() ([]string, error) {
-	features := []string{}
+func (s Source) Discover() (source.Features, error) {
+	features := source.Features{}
 
 	// Find out how many nodes are online
 	// Multiple nodes is a sign of NUMA
@@ -49,7 +50,7 @@ func (s Source) Discover() ([]string, error) {
 		// presence of newline requires TrimSpace
 		if strings.TrimSpace(string(bytes)) != "0" {
 			// more than one node means NUMA
-			features = append(features, "numa")
+			features["numa"] = true
 		}
 	}
 
@@ -69,7 +70,7 @@ func (s Source) Discover() ([]string, error) {
 	if nodeCount > 0 && physicalCount > 0 {
 		glog.Errorf("Detected %v NUMA node(s) and %v Physical ID(s)", nodeCount, physicalCount)
 		if nodeCount > physicalCount {
-			features = append(features, "die-clustering")
+			features["die-clustering"] = true
 		}
 	}
 

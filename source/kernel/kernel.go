@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+	"github.com/kubernetes-incubator/node-feature-discovery/source"
 )
 
 // Default kconfig flags
@@ -48,8 +49,8 @@ type Source struct{}
 
 func (s Source) Name() string { return "kernel" }
 
-func (s Source) Discover() ([]string, error) {
-	features := []string{}
+func (s Source) Discover() (source.Features, error) {
+	features := source.Features{}
 
 	// Read kconfig
 	kconfig, err := parseKconfig()
@@ -66,7 +67,7 @@ func (s Source) Discover() ([]string, error) {
 	}
 	for _, flag := range enabledFlags {
 		if _, ok := kconfig[flag]; ok {
-			features = append(features, "config-"+flag)
+			features["config-"+flag] = true
 		}
 	}
 

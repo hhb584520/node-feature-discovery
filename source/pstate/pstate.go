@@ -19,6 +19,8 @@ package pstate
 import (
 	"fmt"
 	"io/ioutil"
+
+	"github.com/kubernetes-incubator/node-feature-discovery/source"
 )
 
 // Source implements FeatureSource.
@@ -28,8 +30,8 @@ type Source struct{}
 func (s Source) Name() string { return "pstate" }
 
 // Discover returns feature names for p-state related features such as turbo boost.
-func (s Source) Discover() ([]string, error) {
-	features := []string{}
+func (s Source) Discover() (source.Features, error) {
+	features := source.Features{}
 
 	// Only looking for turbo boost for now...
 	bytes, err := ioutil.ReadFile("/sys/devices/system/cpu/intel_pstate/no_turbo")
@@ -38,7 +40,7 @@ func (s Source) Discover() ([]string, error) {
 	}
 	if bytes[0] == byte('0') {
 		// Turbo boost is enabled.
-		features = append(features, "turbo")
+		features["turbo"] = true
 	}
 
 	return features, nil
