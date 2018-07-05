@@ -42,6 +42,11 @@
             ],
             "volumeMounts": [
               {
+                "name": "host-boot",
+                "mountPath": "/boot",
+                "readOnly": true
+              },
+              {
                 "name": "host-sys",
                 "mountPath": "/host-sys"
               }
@@ -50,6 +55,12 @@
         ],
         "restartPolicy": "Never",
         "volumes": [
+          {
+            "name": "host-boot",
+            "hostPath": {
+              "path": "/boot"
+            }
+          },
           {
             "name": "host-sys",
             "hostPath": {
