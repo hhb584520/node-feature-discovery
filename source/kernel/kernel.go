@@ -28,12 +28,20 @@ import (
 )
 
 // Default kconfig flags
-var defaultKconfigFlags = [...]string{
+var defaultKconfigFlags = []string{
 	"NO_HZ",
 	"NO_HZ_IDLE",
 	"NO_HZ_FULL",
 	"PREEMPT",
 }
+
+// Configuration file options
+type NFDConfig struct {
+	KconfigFile string
+	ConfigFlags []string `json:"configFlags,omitempty"`
+}
+
+var Config NFDConfig
 
 // Implement FeatureSource interface
 type Source struct{}
@@ -50,7 +58,13 @@ func (s Source) Discover() ([]string, error) {
 	}
 
 	// Check flags
-	for _, flag := range defaultKconfigFlags {
+	var enabledFlags []string
+	if len(Config.ConfigFlags) > 0 {
+		enabledFlags = Config.ConfigFlags
+	} else {
+		enabledFlags = defaultKconfigFlags
+	}
+	for _, flag := range enabledFlags {
 		if _, ok := kconfig[flag]; ok {
 			features = append(features, "config-"+flag)
 		}
@@ -82,11 +96,22 @@ func readKconfigGzip(filename string) ([]byte, error) {
 func parseKconfig() (map[string]bool, error) {
 	kconfig := map[string]bool{}
 	raw := []byte(nil)
+	err := error(nil)
 
-	// First, try to read from /proc as this is the most reliable source
-	raw, err := readKconfigGzip("/proc/config.gz")
-	if err != nil {
-		glog.Errorf("Failed to read /proc/config.gz: %v", err)
+	// First, try kconfig specified in the config file
+	if len(Config.KconfigFile) > 0 {
+		raw, err = ioutil.ReadFile(Config.KconfigFile)
+		if err != nil {
+			glog.Errorf("Failed to read kernel config from %s: %v", Config.KconfigFile, err)
+		}
+	}
+
+	// Then, try to read from /proc
+	if raw == nil {
+		raw, err = readKconfigGzip("/proc/config.gz")
+		if err != nil {
+			glog.Errorf("Failed to read /proc/config.gz: %v", err)
+		}
 	}
 
 	// Last, try to read from /boot/

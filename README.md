@@ -38,13 +38,15 @@ node-feature-discovery.
 
   Usage:
   node-feature-discovery [--no-publish] [--sources=<sources>] [--label-whitelist=<pattern>]
-     [--oneshot | --sleep-interval=<seconds>]
+     [--oneshot | --sleep-interval=<seconds>] [--config=<path>]
   node-feature-discovery -h | --help
   node-feature-discovery --version
 
   Options:
   -h --help                   Show this screen.
   --version                   Output version and exit.
+  --config=<path>             Config file to use.
+                              [Default: /etc/kubernetes/node-feature-discovery/node-feature-discovery.conf]
   --sources=<sources>         Comma separated list of feature sources.
                               [Default: cpuid,iommu,kernel,memory,network,pstate,rdt,selinux,storage]
   --no-publish                Do not publish discovered features to the
@@ -145,12 +147,12 @@ such as restricting discovered features with the --label-whitelist option._
 
 ### Kernel Features
 
-| Feature name       | Description                                                                         |
-| :--------------:   | :---------------------------------------------------------------------------------: |
-| config-NO_HZ       | Kernel config option is enabled
-| config-NO_HZ_FULL  |
-| config-NO_HZ_IDLE  |
-| config-PREEMPT     |
+| Feature name         | Description                                                                         |
+| :--------------:     | :---------------------------------------------------------------------------------: |
+| config-<option-name> | Kernel config option is enabled (set 'y' or 'm'). Default options are `NO_HZ`, `NO_HZ_IDLE`, `NO_HZ_FULL` and `PREEMPT`
+
+This feature source is configurable. See [configuration
+file](#configuration-file) for more information.
 
 ### Memory Features
 
@@ -226,6 +228,21 @@ Note that this approach does not guarantee running once on every node.
 For example, if some node is tainted NoSchedule or fails to start a job for some other reason, then some other node will run extra job instance(s) to satisfy the request and the tainted/failed node does not get labeled.
 
 [![asciicast](https://asciinema.org/a/11wir751y89617oemwnsgli4a.png)](https://asciinema.org/a/11wir751y89617oemwnsgli4a)
+
+### Configuration file
+
+NFD supports a configuration file. The default location is
+`/etc/kubernetes/node-feature-discovery/node-feature-discovery.conf`
+,but, this can be changed by
+specifying the`--config` command line flag. The file is read inside the Docker
+image. Thus, Volumes and VolumeMounts are needed, or, a custom Docker image
+must be built in order to specify your settings.
+The (empty) [example config](https://github.com/kubernetes-incubator/node-feature-discovery/blob/master/node-feature-discovery.conf.example)
+is available in the NFD Docker image, which can be used as base in custom-built
+images.
+
+Currently, the only available configuration options are related to the
+[Kernel features](kernel feature source).
 
 ## Building from source
 

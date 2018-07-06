@@ -27,5 +27,6 @@ RUN glide install --strip-vendor
 RUN go install \
   -ldflags "-s -w -X main.version=$NFD_VERSION" \
   github.com/kubernetes-incubator/node-feature-discovery
+RUN install -D -m644 node-feature-discovery.conf.example /etc/kubernetes/node-feature-discovery/node-feature-discovery.conf
 
 ENTRYPOINT ["/go/bin/node-feature-discovery"]
