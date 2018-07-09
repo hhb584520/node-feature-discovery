@@ -98,6 +98,7 @@ the only label value published for features is the string `"true"`._
   "node.alpha.kubernetes-incubator.io/nfd-cpuid-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-iommu-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-kernel-config-<option-name>": "true",
+  "node.alpha.kubernetes-incubator.io/nfd-kernel-version-<version-component>": "<VERSION_NUMBER>",
   "node.alpha.kubernetes-incubator.io/nfd-memory-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-network-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-os-release-<feature-name>": "<FEATURE_VALUE>",
@@ -165,6 +166,10 @@ not enabled) as reported by the `cpuid` instruction.
 | Feature name         | Description                                                                         |
 | :--------------:     | :---------------------------------------------------------------------------------: |
 | config-<option-name> | Kernel config option is enabled (set 'y' or 'm'). Default options are `NO_HZ`, `NO_HZ_IDLE`, `NO_HZ_FULL` and `PREEMPT`
+| version-x            | First component of the kernel version (e.g. '4')
+| version-xy           | First two components of the kernel version (e.g. '4.5')
+| version-xyz          | First three components of the kernel version (e.g. '4.5.6')
+| version-full         | Full kernel version as reported by `/proc/sys/kernel/osrelease` (e.g. '4.5.6-7-g123abcde')
 
 This feature source is configurable. See [configuration
 file](#configuration-file) for more information.

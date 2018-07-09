@@ -71,6 +71,16 @@ func (s Source) Discover() (source.Features, error) {
 		}
 	}
 
+	// Read kernel version
+	version, err := parseVersion()
+	if err != nil {
+		glog.Errorf("Failed to get kernel version: %v", err)
+	} else {
+		for key := range version {
+			features["version-"+key] = version[key]
+		}
+	}
+
 	return features, nil
 }
 
@@ -144,4 +154,41 @@ func parseKconfig() (map[string]bool, error) {
 	}
 
 	return kconfig, nil
+}
+
+// Read and parse kernel version
+func parseVersion() (map[string]string, error) {
+	version := map[string]string{}
+
+	// Open file for reading
+	raw, err := ioutil.ReadFile("/proc/sys/kernel/osrelease")
+	if err != nil {
+		return nil, err
+	}
+
+	full := strings.TrimSpace(string(raw))
+	version["full"] = full
+
+	// Regexp for parsing version components
+	re := regexp.MustCompile(`^(?P<x>\d+)(?P<y>\.\d+)?(?P<z>\.\d+)?(-.*)?$`)
+	if m := re.FindStringSubmatch(full); m != nil {
+		mm := map[string]string{}
+		for i, name := range re.SubexpNames() {
+			if i != 0 && name != "" {
+				mm[name] = m[i]
+			}
+		}
+		// Construct version labels from individual components
+		if mm["x"] != "" {
+			version["x"] = mm["x"]
+		}
+		if mm["y"] != "" {
+			version["xy"] = mm["x"] + mm["y"]
+		}
+		if mm["z"] != "" {
+			version["xyz"] = mm["x"] + mm["y"] + mm["z"]
+		}
+	}
+
+	return version, nil
 }
