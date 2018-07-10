@@ -48,7 +48,7 @@ node-feature-discovery.
   --config=<path>             Config file to use.
                               [Default: /etc/kubernetes/node-feature-discovery/node-feature-discovery.conf]
   --sources=<sources>         Comma separated list of feature sources.
-                              [Default: cpu,cpuid,iommu,kernel,memory,network,pstate,rdt,selinux,storage]
+                              [Default: cpu,cpuid,iommu,kernel,memory,network,os-release,pstate,rdt,selinux,storage]
   --no-publish                Do not publish discovered features to the
                               cluster-local Kubernetes API server.
   --label-whitelist=<pattern> Regular expression to filter label names to
@@ -71,6 +71,7 @@ The current set of feature sources are the following:
 - Kernel
 - Memory
 - Network
+- OS-release
 - Pstate ([Intel P-State driver][intel-pstate])
 - RDT ([Intel Resource Director Technology][intel-rdt])
 - Selinux
@@ -99,6 +100,7 @@ the only label value published for features is the string `"true"`._
   "node.alpha.kubernetes-incubator.io/nfd-kernel-config-<option-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-memory-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-network-<feature-name>": "true",
+  "node.alpha.kubernetes-incubator.io/nfd-os-release-<feature-name>": "<FEATURE_VALUE>",
   "node.alpha.kubernetes-incubator.io/nfd-pstate-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-rdt-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-selinux-<feature-name>": "true",
@@ -179,6 +181,13 @@ file](#configuration-file) for more information.
 | Feature name   | Description                                                                         |
 | :------------: | :---------------------------------------------------------------------------------: |
 | [SRIOV][sriov] | Single Root Input/Output Virtualization (SR-IOV) enabled Network Interface Card
+
+### OS-release Features
+
+| Feature name       | Description                                                                         |
+| :--------------:   | :---------------------------------------------------------------------------------: |
+| ID                 | Operating system identifier
+| VERSION_ID         | Operating system version identifier
 
 ### RDT (Intel Resource Director Technology) Features
 

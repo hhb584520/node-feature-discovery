@@ -46,6 +46,11 @@
               {
                 "name": "host-sys",
                 "mountPath": "/host-sys"
+              },
+              {
+                "name": "host-os-release",
+                "mountPath": "/etc/os-release",
+                "readOnly": true
               }
             ]
           }
@@ -61,6 +66,12 @@
             "name": "host-sys",
             "hostPath": {
               "path": "/sys"
+            }
+          },
+          {
+            "name": "host-os-release",
+            "hostPath": {
+              "path": "/etc/os-release"
             }
           }
         ]
