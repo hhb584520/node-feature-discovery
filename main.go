@@ -17,6 +17,7 @@ import (
 	"github.com/kubernetes-incubator/node-feature-discovery/source/fake"
 	"github.com/kubernetes-incubator/node-feature-discovery/source/iommu"
 	"github.com/kubernetes-incubator/node-feature-discovery/source/kernel"
+	"github.com/kubernetes-incubator/node-feature-discovery/source/local"
 	"github.com/kubernetes-incubator/node-feature-discovery/source/memory"
 	"github.com/kubernetes-incubator/node-feature-discovery/source/network"
 	"github.com/kubernetes-incubator/node-feature-discovery/source/os_release"
@@ -160,7 +161,7 @@ func argsParse(argv []string) (args Args) {
   --config=<path>             Config file to use.
                               [Default: /etc/kubernetes/node-feature-discovery/node-feature-discovery.conf]
   --sources=<sources>         Comma separated list of feature sources.
-                              [Default: cpu,cpuid,iommu,kernel,memory,network,os-release,pstate,rdt,selinux,storage]
+                              [Default: cpu,cpuid,iommu,kernel,local,memory,network,os-release,pstate,rdt,selinux,storage]
   --no-publish                Do not publish discovered features to the
                               cluster-local Kubernetes API server.
   --label-whitelist=<pattern> Regular expression to filter label names to
@@ -232,6 +233,7 @@ func configureParameters(sourcesWhiteList []string, labelWhiteListStr string) (e
 		fake.Source{},
 		iommu.Source{},
 		kernel.Source{},
+		local.Source{},
 		memory.Source{},
 		network.Source{},
 		os_release.Source{},
