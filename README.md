@@ -171,6 +171,7 @@ file](#configuration-file) for more information.
 
 | Feature name   | Description                                                                         |
 | :------------: | :---------------------------------------------------------------------------------: |
+| die-clustering | Intel Cluster-on-Die or sub-NUMA clustering technology enabled
 | numa           | Multiple memory nodes i.e. NUMA architecture detected
 
 ### Network Features
