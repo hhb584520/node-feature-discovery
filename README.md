@@ -48,7 +48,7 @@ node-feature-discovery.
   --config=<path>             Config file to use.
                               [Default: /etc/kubernetes/node-feature-discovery/node-feature-discovery.conf]
   --sources=<sources>         Comma separated list of feature sources.
-                              [Default: cpuid,iommu,kernel,memory,network,pstate,rdt,selinux,storage]
+                              [Default: cpu,cpuid,iommu,kernel,memory,network,pstate,rdt,selinux,storage]
   --no-publish                Do not publish discovered features to the
                               cluster-local Kubernetes API server.
   --label-whitelist=<pattern> Regular expression to filter label names to
@@ -65,6 +65,7 @@ node-feature-discovery.
 
 The current set of feature sources are the following:
 
+- CPU
 - [CPUID][cpuid] for x86/Arm64 CPU details
 - IOMMU
 - Kernel
@@ -92,6 +93,7 @@ the only label value published for features is the string `"true"`._
 ```json
 {
   "node.alpha.kubernetes-incubator.io/node-feature-discovery.version": "v0.2.0",
+  "node.alpha.kubernetes-incubator.io/nfd-cpu-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-cpuid-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-iommu-<feature-name>": "true",
   "node.alpha.kubernetes-incubator.io/nfd-kernel-config-<option-name>": "true",
@@ -110,6 +112,17 @@ _Note: Consecutive runs of node-feature-discovery will update the labels on a
 given node. If features are not discovered on a consecutive run, the corresponding
 label will be removed. This includes any restrictions placed on the consecutive run,
 such as restricting discovered features with the --label-whitelist option._
+
+### CPU Features
+
+The CPU feature source differs from the CPUID feature source in that it
+discovers CPU related features that are actually enabled, whereas CPUID only
+reports *supported* CPU capabilities (i.e. a capability might be supported but
+not enabled) as reported by the `cpuid` instruction.
+
+| Feature name       | Description                                                                         |
+| :--------------:   | :---------------------------------------------------------------------------------: |
+| logical-cpus       | Number of locical CPUs is greater than physical CPUs (Hyper-Threading technology enabled)
 
 ### X86 CPUID Features (Partial List)
 
