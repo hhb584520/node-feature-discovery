@@ -27,6 +27,7 @@ RUN go install \
   -ldflags "-s -w -X main.version=$NFD_VERSION" \
   sigs.k8s.io/node-feature-discovery
 RUN install -D -m644 node-feature-discovery.conf.example /etc/kubernetes/node-feature-discovery/node-feature-discovery.conf
+RUN make -C local-hooks install
 
 RUN go test .
 
