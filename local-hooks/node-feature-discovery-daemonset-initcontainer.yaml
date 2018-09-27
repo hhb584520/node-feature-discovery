@@ -1,3 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: node-feature-discovery
+  name: nfd-config
+data:
+  node-feature-discovery.conf: |
+    sources:
+      pci:
+        deviceLabelFields:
+          - "class"
+          - "vendor"
+          - "device"
+          - "subsystem_vendor"
+          - "subsystem_device"
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -49,6 +66,8 @@ spec:
         - name: nfd-hooks
           mountPath: "/etc/kubernetes/node-feature-discovery/source.d"
           readOnly: true
+        - name: nfd-config
+          mountPath: "/etc/kubernetes/node-feature-discovery/"
       volumes:
       - name: host-boot
         hostPath:
@@ -64,3 +83,6 @@ spec:
           path: "/etc/os-release"
       - name: nfd-hooks
         emptyDir: {}
+      - name: nfd-config
+        configMap:
+          name: nfd-config
