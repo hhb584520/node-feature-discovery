@@ -26,6 +26,7 @@ The tool currently detects the following features:
 | C-state      | `cstate-disabled`      | C-state configuration, tells if all C-states have been disabled
 | Uncore freq  | `uncore-min-frequency` | Uncore frequency configuration, min/max range of possible uncore frequencies.
 | .            | `uncore-max-frequency`
+| EET          | `eet-disabled`         | Energy Efficient Turbo has been disabled
 
 NFD will prefix the label with `feature.node.kubernetes.io/`, so
 that the full node label visible in Kubernetes will be:
