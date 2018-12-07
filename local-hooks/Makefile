@@ -6,12 +6,14 @@ INSTALLDIR = $(DESTDIR)$(SYSCONFDIR)/kubernetes/node-feature-discovery/source.d/
 
 .PHONY: all install
 
-all: cpu
+binaries = cpu memory
 
-cpu: cpu.go
-	$(GO) build ./cpu.go
+all: $(binaries)
 
-install: cpu
+$(binaries): %: %.go
+	$(GO) build $<
+
+install: $(binaries)
 	install -d $(INSTALLDIR)
-	install -t $(INSTALLDIR) cpu
+	install -t $(INSTALLDIR) $(binaries)
 

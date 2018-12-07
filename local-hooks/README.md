@@ -34,6 +34,20 @@ that the full node label visible in Kubernetes will be:
 feature.node.kubernetes.io/cpu-<CPU_LABEL_NAME> = <CPU_LABEL_VALUE>
 ```
 
+## Memory Hook
+
+The `memory` hook supplements NFD's built in memory feature detector. It
+currently only detects one feature.
+
+| Feature      | Labels                 | Description
+| :----------- | :-------------------:  | :-----------
+| CoD/sNC      | `die_clustering`       | Cluster-on-Die or sub-NUMA clustering is is enabled
+
+The feature label advertised by NFD is
+```
+feature.node.kubernetes.io/memory-die_clustering = true
+```
+
 
 ## Building and Running
 
