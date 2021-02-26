@@ -1,0 +1,55 @@
+apiVersion: v1
+entries:
+  node-feature-discovery:
+  - apiVersion: v2
+    appVersion: master
+    created: "2021-02-26T15:17:09.070635803Z"
+    description: 'Detects hardware features available on each node in a Kubernetes cluster, and advertises those features using node labels. '
+    digest: 34f79125c6f3b774b8b9fa5eab5e589bed967e6e8e07e47cff255934e0902df3
+    home: https://github.com/kubernetes-sigs/node-feature-discovery
+    keywords:
+    - feature-discovery
+    - feature-detection
+    - node-labels
+    name: node-feature-discovery
+    sources:
+    - https://github.com/kubernetes-sigs/node-feature-discovery
+    type: application
+    urls:
+    - https://github.com/marquiz/node-feature-discovery/releases/download/v0.4.0/node-feature-discovery-chart-0.4.0.tgz
+    version: 0.4.0
+  - apiVersion: v2
+    appVersion: master
+    created: "2021-02-26T15:17:08.769240865Z"
+    description: 'Detects hardware features available on each node in a Kubernetes cluster, and advertises those features using node labels. '
+    digest: 6a1c49b3336e8b75636727621f6444591e96ca730de0da02eb2c9ee008d4fc17
+    home: https://github.com/kubernetes-sigs/node-feature-discovery
+    keywords:
+    - feature-discovery
+    - feature-detection
+    - node-labels
+    name: node-feature-discovery
+    sources:
+    - https://github.com/kubernetes-sigs/node-feature-discovery
+    type: application
+    urls:
+    - https://github.com/marquiz/node-feature-discovery/releases/download/v0.3.0/node-feature-discovery-chart-0.3.0.tgz
+    version: 0.3.0
+  - apiVersion: v2
+    appVersion: master
+    created: "2021-02-26T15:17:08.512782563Z"
+    description: 'Detects hardware features available on each node in a Kubernetes cluster, and advertises those features using node labels. '
+    digest: 773b320c4ea072ac755cfb9c7a14e1757d490b6e11a622cf5c2471bd85a311ab
+    home: https://github.com/kubernetes-sigs/node-feature-discovery
+    keywords:
+    - feature-discovery
+    - feature-detection
+    - node-labels
+    name: node-feature-discovery
+    sources:
+    - https://github.com/kubernetes-sigs/node-feature-discovery
+    type: application
+    urls:
+    - https://github.com/marquiz/node-feature-discovery/releases/download/v0.1.0/node-feature-discovery-chart-0.1.2.tgz
+    version: 0.1.2
+generated: "2021-02-26T15:17:09.069415605Z"
