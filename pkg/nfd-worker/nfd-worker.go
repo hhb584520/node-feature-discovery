@@ -113,6 +113,7 @@ type nfdWorker struct {
 	client         pb.LabelerClient
 	configFilePath string
 	config         *NFDConfig
+	labels         Labels
 	realSources    []source.FeatureSource
 	stop           chan struct{} // channel for signaling stop
 	testSources    []source.FeatureSource
@@ -246,9 +247,14 @@ func (w *nfdWorker) Run() error {
 
 			// Update the node with the feature labels.
 			if w.client != nil {
-				err := advertiseFeatureLabels(w.client, labels)
-				if err != nil {
-					return fmt.Errorf("failed to advertise labels: %s", err.Error())
+				if w.labels == nil || !w.labels.equal(labels) {
+					err := advertiseFeatureLabels(w.client, labels)
+					if err != nil {
+						return fmt.Errorf("failed to advertise labels: %s", err.Error())
+					}
+					w.labels = labels
+				} else {
+					klog.Infof("no change in feature labels, no labeling request sent")
 				}
 			}
 
@@ -646,4 +652,16 @@ func (c *sourcesConfig) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+func (i Labels) equal(j Labels) bool {
+	if len(i) != len(j) {
+		return false
+	}
+	for k, v := range i {
+		if j[k] != v {
+			return false
+		}
+	}
+	return true
 }
