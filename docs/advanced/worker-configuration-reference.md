@@ -47,6 +47,22 @@ core:
   sleepInterval: 60s
 ```
 
+### core.forceLabelInterval
+
+`core.forceLabelInterval` specifies an interval after which a labeling request
+is sent to master even if there have been no changes is feature labels. The
+value cannot be smaller than `core.sleepInterval`. A non-positive value disables
+forced labeling requests.
+
+Default: `24h`
+
+Example:
+
+```yaml
+core:
+  forceLabelInterval: 168h
+```
+
 ### core.sources
 
 `core.sources` specifies the list of enabled feature sources. A special value

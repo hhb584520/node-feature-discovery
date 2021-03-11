@@ -76,6 +76,7 @@ worker:
     #  labelWhiteList:
     #  noPublish: false
     #  sleepInterval: 60s
+    #  forceLabelInterval: 24h
     #  sources: [all]
     #  klog:
     #    addDirHeader: false

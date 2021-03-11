@@ -65,11 +65,12 @@ type NFDConfig struct {
 }
 
 type coreConfig struct {
-	Klog           map[string]string
-	LabelWhiteList utils.RegexpVal
-	NoPublish      bool
-	Sources        []string
-	SleepInterval  duration
+	ForceLabelInterval duration
+	Klog               map[string]string
+	LabelWhiteList     utils.RegexpVal
+	NoPublish          bool
+	Sources            []string
+	SleepInterval      duration
 }
 
 type sourcesConfig map[string]source.Config
@@ -207,10 +208,11 @@ func addConfigWatch(path string) (*fsnotify.Watcher, map[string]struct{}, error)
 func newDefaultConfig() *NFDConfig {
 	return &NFDConfig{
 		Core: coreConfig{
-			LabelWhiteList: utils.RegexpVal{Regexp: *regexp.MustCompile("")},
-			SleepInterval:  duration{60 * time.Second},
-			Sources:        []string{"all"},
-			Klog:           make(map[string]string),
+			ForceLabelInterval: duration{24 * time.Hour},
+			LabelWhiteList:     utils.RegexpVal{Regexp: *regexp.MustCompile("")},
+			SleepInterval:      duration{60 * time.Second},
+			Sources:            []string{"all"},
+			Klog:               make(map[string]string),
 		},
 	}
 }
@@ -238,21 +240,25 @@ func (w *nfdWorker) Run() error {
 	defer w.disconnect()
 
 	labelTrigger := time.After(0)
+	var lastAdvertised time.Time
 	var configTrigger <-chan time.Time
 	for {
 		select {
 		case <-labelTrigger:
 			// Get the set of feature labels.
+			klog.Info("doing feature discovery...")
 			labels := createFeatureLabels(w.enabledSources, w.config.Core.LabelWhiteList.Regexp)
 
 			// Update the node with the feature labels.
 			if w.client != nil {
-				if w.labels == nil || !w.labels.equal(labels) {
+				forced := w.config.Core.ForceLabelInterval.Duration > 0 && time.Since(lastAdvertised) > w.config.Core.ForceLabelInterval.Duration
+				if w.labels == nil || forced || !w.labels.equal(labels) {
 					err := advertiseFeatureLabels(w.client, labels)
 					if err != nil {
 						return fmt.Errorf("failed to advertise labels: %s", err.Error())
 					}
 					w.labels = labels
+					lastAdvertised = time.Now()
 				} else {
 					klog.Infof("no change in feature labels, no labeling request sent")
 				}
@@ -388,6 +394,10 @@ func (c *coreConfig) sanitize() {
 		klog.Warningf("too short sleep-intervall specified (%s), forcing to 1s",
 			c.SleepInterval.Duration.String())
 		c.SleepInterval = duration{time.Second}
+	}
+	if c.ForceLabelInterval.Duration > 0 && c.ForceLabelInterval.Duration < c.SleepInterval.Duration {
+		klog.Warningf("forceLabelInterval (%s) shorter than sleepInterval (%s)",
+			c.ForceLabelInterval.String(), c.SleepInterval.Duration.String())
 	}
 }
 
