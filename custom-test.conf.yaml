@@ -1,0 +1,225 @@
+sources:
+  custom:
+
+  - name: LEGACY-loaded-kmod-test-1
+    matchOn:
+    - loadedKMod: ["fuse", "ip_tables"]
+  - name: LEGACY-loaded-kmod-test-NEGATIVE
+    matchOn:
+    - loadedKMod: ["fuse", "ip_tables_foo"]
+
+
+  - name: LEGACY-cpuid-test-1
+    matchOn:
+    - cpuid: ["AVX", "AESNI"]
+  - name: LEGACY-cpuid-test-NEGATIVE
+    matchOn:
+    - cpuid: ["AVX1234"]
+
+  - name: LEGACY-pci-id-test-1
+    matchOn:
+    - pciId:
+        class: ["0600"]
+        vendor: ["8086"]
+  - name: LEGACY-pci-id-test-NEGATIVE
+    matchOn:
+    - pciId:
+        class: ["0600"]
+        vendor: ["ffff"]
+
+  - name: LEGACY-usb-id-test-1
+    matchOn:
+    - usbId:
+        class: ["09"]
+        vendor: ["1d6b"]
+  - name: LEGACY-usb-id-test-NEGATIVE
+    matchOn:
+    - usbId:
+        class: ["09"]
+        vendor: ["ffff"]
+
+  - name: LEGACY-nodename-test-1
+    matchOn:
+    - nodeName: ["foo"]
+  - name: LEGACY-nodename-test-NEGATIVE
+    matchOn:
+    - nodeName: ["bar"]
+
+  - name: cpu-test-1
+    labels: {cpu-test-1: "true"}
+    matchFeatures:
+      - feature: cpu.cpuid
+        matchExpressions: ["AVX", "AESNI"]
+      - feature: cpu.rdt
+        matchExpressions:
+          RDTL3CA: {op: DoesNotExist}
+  - name: cpu-test-NEGATIVE
+    labels: {cpu-test-NEGATIVE: "true"}
+    matchFeatures:
+      - feature: cpu.cpuid
+        matchExpressions: ["AVX", "AESNI512"]
+
+  - name: kernel-test-1
+    labels: {kernel-test-1: "true"}
+    matchFeatures:
+      - feature: kernel.loadedModule
+        matchExpressions: ["fuse"]
+      - feature: kernel.config
+        matchExpressions:
+          X86:
+          LOG_BUF_SHIFT: {op: Gt, value: ["10"]}
+      - feature: kernel.version
+        matchExpressions:
+          major: {op: In, value: ["5"]}
+          minor: {op: Gt, value: ["2"]}
+  - name: kernel-test-NEGATIVE
+    labels: {kernel-test-NEGATIVE: "true"}
+    matchFeatures:
+      - feature: kernel.loadedModule
+        matchExpressions: ["fuse"]
+      - feature: kernel.config
+        matchExpressions:
+          LOG_BUF_SHIFT: {op: Lt, value: ["10"]}
+
+  - name: system-test-1
+    labels: {system-test-1: "true"}
+    matchFeatures:
+      - feature: system.osRelease
+        matchExpressions:
+          NAME: {op: InRegexp, value: ["^openSUSE.*"]}
+          VERSION_ID.major: {op: In, value: ["13", "15"]}
+  - name: system-test-NEGATIVE
+    labels: {system-test-NEGATIVE: "true"}
+    matchFeatures:
+      - feature: system.osRelease
+        matchExpressions:
+          VERSION_ID.major: {op: Gt, value: ["130"]}
+
+  - name: local-test-1
+    labels: {local-test-1: "true"}
+    matchFeatures:
+      - feature: local.label
+        matchExpressions:
+          example.com/local-feature: {op: Lt, value: ["200"]}
+  - name: local-test-NEGATIVE
+    labels: {local-test-NEGATIVE: "true"}
+    matchFeatures:
+      - feature: local.label
+        matchExpressions:
+          example.com/local-feature: {op: Gt, value: ["200"]}
+
+  - name: storage-test-1
+    labels: {storage-test-1: "true"}
+    matchFeatures:
+      - feature: storage.block
+        matchExpressions:
+          rotational: { op: In, value: ["1"] }
+          dax: { op: In, value: ["0"] }
+  - name: storage-test-NEGATIVE
+    labels: {storage-test-NEGATIVE: "true"}
+    matchFeatures:
+      - feature: storage.block
+        matchExpressions:
+          dax: { op: In, value: ["1"] }
+
+  - name: network-test-1
+    labels: {network-test-1: "true"}
+    matchFeatures:
+      - feature: network.device
+        matchExpressions:
+          operstate: { op: In, value: ["up"] }
+          speed: { op: Gt, value: ["100"] }
+  - name: network-test-NEGATIVE
+    labels: {network-test-NEGATIVE: "true"}
+    matchFeatures:
+      - feature: network.device
+        matchExpressions:
+          speed: { op: Gt, value: ["10000"] }
+
+  - name: memory-test-1
+    labels: {memory-test-1: "true"}
+    matchFeatures:
+      - feature: memory.numa
+        matchExpressions:
+          node_count: { op: Gt, value: ["0"] }
+  - name: memory-test-NEGATIVE
+    labels: {memory-test-NEGATIVE: "true"}
+    matchFeatures:
+      - feature: memory.numa
+        matchExpressions:
+          node_count: { op: Gt, value: ["100"] }
+
+  - name: test-matchany
+    labels: {local-matchany-1: "my-value"}
+    matchAny:
+      - matchFeatures:
+        - feature: cpu.cpuid
+          matchExpressions:
+            AVX: {op: Exists}
+        - feature: cpu.rdt
+          matchExpressions:
+            RDTL3CA: {op: Exists}
+      - matchFeatures:
+        - feature: cpu.cpuid
+          matchExpressions:
+            AVX2: {op: Exists}
+        - feature: cpu.rdt
+          matchExpressions:
+            RDTL3CA: {op: DoesNotExist}
+
+
+  - name: "pci-template-test"
+    labelsTemplate: |
+      TEMPLATE-pci-id-test-intel-MANUAL-LABEL
+      TEMPLATE-pci-id-test-intel-MANUAL-LABEL.2=my-value
+    matchFeatures:
+      - feature: pci.device
+        matchExpressions:
+          class: {op: InRegexp, value: ["^06"]}
+          vendor: ["8086"]
+
+  - name: "system-template-test"
+    labelsTemplate: "{{range .system.osrelease}}TEMPLATE-system-test-{{.Name}}={{.Value}}\n{{end}}"
+    matchFeatures:
+      - feature: system.osrelease
+        matchExpressions:
+          ID: {op: InRegexp, value: ["^open.*"]}
+          VERSION_ID.major: {op: In, value: ["13", "15"]}
+
+  - name: "pci-cpu-template-combo-test"
+    labelsTemplate: "{{range .pci.device}}TEMPLATE-pci-combo-test-{{ .class}}-{{ .device }}=with-cpuid\n{{end}}"
+    matchFeatures:
+      - feature: pci.device
+        matchExpressions:
+          class: {op: InRegexp, value: ["^060[01]"]}
+          vendor: ["8086"]
+      - feature: cpu.cpuid
+        matchExpressions:
+          AVX: {op: Exists}
+
+  - name: "kernel-config-wildcard-test"
+    labelsTemplate: "{{range .kernel.config}}WILDCARD-kconfig-{{.Name}}={{.Value}}\n{{end}}"
+    matchFeatures:
+      - feature: kernel.config
+        matchExpressions:
+          "*": {op: In, value: [SWAP, X86, AARCH64]}
+
+  - name: "SSE wildcard test"
+    labels: {WILDCARD-test-sse: "true"}
+    matchFeatures:
+      - feature: cpu.cpuid
+        matchExpressions:
+          "*": {op: InRegexp, value: ["^SSE"]}
+
+  - name: "vars-test-1"
+    vars: {vars-test-1: "true"}
+    matchFeatures:
+      - feature: cpu.cpuid
+
+  - name:  "backref test 1"
+    labels: {"BACKREF-test-1": "true"}
+    matchFeatures:
+      - feature: rule.matched
+        matchExpressions:
+          system-test-1: "true"
+          vars-test-1: "true"
