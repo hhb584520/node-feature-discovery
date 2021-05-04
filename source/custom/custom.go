@@ -17,10 +17,12 @@ limitations under the License.
 package custom
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"text/template"
 
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
@@ -51,10 +53,13 @@ type LegacyRule struct {
 }
 
 type Rule struct {
-	Name          string            `json:"name"`
-	Labels        map[string]string `json:"labels"`
-	MatchFeatures FeatureMatcher    `json:"matchFeatures"`
-	MatchAny      []MatchAnyElem    `json:"matchAny"`
+	Name           string            `json:"name"`
+	Labels         map[string]string `json:"labels"`
+	LabelsTemplate string            `json:"labelsTemplate"`
+	MatchFeatures  FeatureMatcher    `json:"matchFeatures"`
+	MatchAny       []MatchAnyElem    `json:"matchAny"`
+
+	labelsTemplate *template.Template
 }
 
 type MatchAnyElem struct {
@@ -106,13 +111,23 @@ func (s *customSource) NewConfig() source.Config { return newDefaultConfig() }
 func (s *customSource) GetConfig() source.Config { return s.config }
 
 // SetConfig method of the LabelSource interface
-func (s *customSource) SetConfig(conf source.Config) {
-	switch v := conf.(type) {
+func (s *customSource) SetConfig(c source.Config) {
+	switch c.(type) {
 	case *config:
-		s.config = v
 	default:
-		klog.Fatalf("invalid config type: %T", conf)
+		klog.Fatalf("invalid config type: %T", c)
 	}
+
+	// Parse template rules
+	conf := c.(*config)
+	for i, spec := range *conf {
+		if spec.Rule != nil && spec.Rule.LabelsTemplate != "" {
+			tmpl := template.Must(template.New("").Option("missingkey=error").Parse(spec.Rule.LabelsTemplate))
+			(*conf)[i].Rule.labelsTemplate = tmpl
+		}
+	}
+
+	s.config = conf
 }
 
 // Priority method of the LabelSource interface
@@ -192,15 +207,27 @@ func (r *LegacyRule) execute(features map[string]*feature.DomainFeatures) (map[s
 }
 
 func (r *Rule) execute(features map[string]*feature.DomainFeatures) (map[string]string, error) {
+	ret := make(map[string]string)
+
 	if len(r.MatchAny) > 0 {
 		// Logical OR over the matchAny matchers
 		matched := false
 		for _, matcher := range r.MatchAny {
 			if m, err := matcher.match(features); err != nil {
 				return nil, err
-			} else if m {
+			} else if m != nil {
 				matched = true
-				break
+				utils.KlogDump(4, "matches for matchAny "+r.Name, "  ", m)
+
+				if r.labelsTemplate == nil {
+					// No templating so we stop here (further matches would just
+					// produce the same labels)
+					break
+				}
+				if err := r.executeLabelsTemplate(m, ret); err != nil {
+					return nil, err
+				}
+
 			}
 		}
 		if !matched {
@@ -211,29 +238,66 @@ func (r *Rule) execute(features map[string]*feature.DomainFeatures) (map[string]
 	if len(r.MatchFeatures) > 0 {
 		if m, err := r.MatchFeatures.match(features); err != nil {
 			return nil, err
-		} else if !m {
+		} else if m == nil {
 			return nil, nil
+		} else {
+			utils.KlogDump(4, "matches for matchFeatures "+r.Name, "  ", m)
+			if err := r.executeLabelsTemplate(m, ret); err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	labels := make(map[string]string, len(r.Labels))
 	for k, v := range r.Labels {
-		labels[k] = v
+		ret[k] = v
 	}
 
-	return labels, nil
+	return ret, nil
 }
 
-func (e *MatchAnyElem) match(features map[string]*feature.DomainFeatures) (bool, error) {
+func (r *Rule) executeLabelsTemplate(in matchedFeatures, out map[string]string) error {
+	if r.labelsTemplate == nil {
+		return nil
+	}
+
+	// Execute template to produce an array of labels
+	var tmp bytes.Buffer
+	if err := r.labelsTemplate.Execute(&tmp, in); err != nil {
+		return err
+	}
+	expanded := tmp.String()
+
+	// Split out individual labels
+	for _, item := range strings.Split(expanded, "\n") {
+		// Remove leading/trailing whitespace and skip empty lines
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			split := strings.SplitN(trimmed, "=", 2)
+			if len(split) == 1 {
+				out[split[0]] = "true"
+			} else {
+				out[split[0]] = split[1]
+			}
+		}
+	}
+	return nil
+}
+
+type matchedFeatures map[string]domainMatchedFeatures
+
+type domainMatchedFeatures map[string]interface{}
+
+func (e *MatchAnyElem) match(features map[string]*feature.DomainFeatures) (matchedFeatures, error) {
 	return e.MatchFeatures.match(features)
 }
 
-func (m *FeatureMatcher) match(features map[string]*feature.DomainFeatures) (bool, error) {
+func (m *FeatureMatcher) match(features map[string]*feature.DomainFeatures) (matchedFeatures, error) {
+	ret := make(matchedFeatures, len(*m))
+
 	// Logical AND over the terms
 	for _, term := range *m {
 		split := strings.SplitN(term.Feature, ".", 2)
 		if len(split) != 2 {
-			return false, fmt.Errorf("invalid selector %q: must be <domain>.<feature>", term.Feature)
+			return nil, fmt.Errorf("invalid feature %q: must be <domain>.<feature>", term.Feature)
 		}
 		domain := split[0]
 		// Ignore case
@@ -241,28 +305,41 @@ func (m *FeatureMatcher) match(features map[string]*feature.DomainFeatures) (boo
 
 		domainFeatures, ok := features[domain]
 		if !ok {
-			return false, fmt.Errorf("unknown feature source/domain %q", domain)
+			return nil, fmt.Errorf("unknown feature source/domain %q", domain)
+		}
+
+		if _, ok := ret[domain]; !ok {
+			ret[domain] = make(domainMatchedFeatures)
 		}
 
 		var m bool
-		var err error
+		var e error
 		if f, ok := domainFeatures.Keys[featureName]; ok {
-			m, err = term.MatchExpressions.MatchKeys(f.Elements)
+			v, err := term.MatchExpressions.MatchGetKeys(f.Elements)
+			m = len(v) > 0
+			e = err
+			ret[domain][featureName] = v
 		} else if f, ok := domainFeatures.Values[featureName]; ok {
-			m, err = term.MatchExpressions.MatchValues(f.Elements)
+			v, err := term.MatchExpressions.MatchGetValues(f.Elements)
+			m = len(v) > 0
+			e = err
+			ret[domain][featureName] = v
 		} else if f, ok := domainFeatures.Instances[featureName]; ok {
-			m, err = term.MatchExpressions.MatchInstances(f.Elements)
+			v, err := term.MatchExpressions.MatchGetInstances(f.Elements)
+			m = len(v) > 0
+			e = err
+			ret[domain][featureName] = v
 		} else {
-			return false, fmt.Errorf("%q feature of source/domain %q not available", featureName, domain)
+			return nil, fmt.Errorf("%q feature of source/domain %q not available", featureName, domain)
 		}
 
-		if err != nil {
-			return false, err
+		if e != nil {
+			return nil, e
 		} else if !m {
-			return false, nil
+			return nil, nil
 		}
 	}
-	return true, nil
+	return ret, nil
 }
 
 func (m *LegacyMatcher) match() (bool, error) {

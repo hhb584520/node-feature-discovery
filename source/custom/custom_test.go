@@ -18,6 +18,7 @@ package custom
 
 import (
 	"testing"
+	"text/template"
 
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/node-feature-discovery/pkg/api/feature"
@@ -178,4 +179,109 @@ func TestRule(t *testing.T) {
 	m, err = r5.execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
 	assert.Equal(t, r5.Labels, m, "instances should have matched")
+}
+
+func newTemplate(tmpl string) *template.Template {
+	return template.Must(template.New("").Option("missingkey=error").Parse(tmpl))
+}
+
+func TestTemplating(t *testing.T) {
+	f := map[string]*feature.DomainFeatures{
+		"domain_1": &feature.DomainFeatures{
+			Keys: map[string]feature.KeyFeatureSet{
+				"kf_1": feature.KeyFeatureSet{
+					Elements: map[string]feature.Nil{
+						"key-a": feature.Nil{},
+						"key-b": feature.Nil{},
+						"key-c": feature.Nil{},
+					},
+				},
+			},
+			Values: map[string]feature.ValueFeatureSet{
+				"vf_1": feature.ValueFeatureSet{
+					Elements: map[string]string{
+						"key-1": "val-1",
+						"keu-2": "val-2",
+						"key-3": "val-3",
+					},
+				},
+			},
+			Instances: map[string]feature.InstanceFeatureSet{
+				"if_1": feature.InstanceFeatureSet{
+					Elements: []feature.InstanceFeature{
+						feature.InstanceFeature{
+							Attributes: map[string]string{
+								"attr-1": "1",
+								"attr-2": "val-2",
+							},
+						},
+						feature.InstanceFeature{
+							Attributes: map[string]string{
+								"attr-1": "10",
+								"attr-2": "val-20",
+							},
+						},
+						feature.InstanceFeature{
+							Attributes: map[string]string{
+								"attr-1": "100",
+								"attr-2": "val-200",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	r1 := Rule{
+		Labels: map[string]string{"label-1": "label-val-1"},
+		labelsTemplate: newTemplate(`
+{{range .domain_1.kf_1}}kf-{{.Name}}=present
+{{end}}
+{{range .domain_1.vf_1}}vf-{{.Name}}=vf-{{.Value}}
+{{end}}
+{{range .domain_1.if_1}}if-{{index . "attr-1"}}_{{index . "attr-2"}}=present
+{{end}}`),
+		MatchFeatures: FeatureMatcher{
+			FeatureMatcherTerm{
+				Feature: "domain_1.kf_1",
+				MatchExpressions: expression.MatchExpressionSet{
+					"key-a": expression.MustCreateMatchExpression(expression.MatchExists),
+					"key-c": expression.MustCreateMatchExpression(expression.MatchExists),
+					"foo":   expression.MustCreateMatchExpression(expression.MatchDoesNotExist),
+				},
+			},
+			FeatureMatcherTerm{
+				Feature: "domain_1.vf_1",
+				MatchExpressions: expression.MatchExpressionSet{
+					"key-1": expression.MustCreateMatchExpression(expression.MatchIn, "val-1", "val-2"),
+					"bar":   expression.MustCreateMatchExpression(expression.MatchDoesNotExist),
+				},
+			},
+			FeatureMatcherTerm{
+				Feature: "domain_1.if_1",
+				MatchExpressions: expression.MatchExpressionSet{
+					"attr-1": expression.MustCreateMatchExpression(expression.MatchLt, "100"),
+				},
+			},
+		},
+	}
+
+	expectedLabels := map[string]string{
+		"label-1": "label-val-1",
+		// From kf_1 template
+		"kf-key-a": "present",
+		"kf-key-c": "present",
+		"kf-foo":   "present",
+		// From vf_1 template
+		"vf-key-1": "vf-val-1",
+		"vf-bar":   "vf-",
+		// From if_1 template
+		"if-1_val-2":   "present",
+		"if-10_val-20": "present",
+	}
+
+	m, err := r1.execute(f)
+	assert.Nilf(t, err, "unexpected error: %v", err)
+	assert.Equal(t, expectedLabels, m, "instances should have matched")
 }
