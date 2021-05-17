@@ -71,6 +71,9 @@ type Rule struct {
 	// MatchAny specifies a list of matchers one of which must match.
 	// +optional
 	MatchAny []MatchAnyElem `json:"matchAny"`
+
+	// labelsTemplate is a private helper/cache for handling golang templates
+	labelsTemplate *templateHelper `json:"-"`
 }
 
 // MatchAnyElem specifies one sub-matcher of MatchAny.
