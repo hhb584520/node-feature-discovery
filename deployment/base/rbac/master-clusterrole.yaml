@@ -20,3 +20,11 @@ rules:
   - create
   - get
   - update
+- apiGroups:
+  - nfd.k8s-sigs.io
+  resources:
+  - labelrules
+  verbs:
+  - get
+  - list
+  - watch
