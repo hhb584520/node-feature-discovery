@@ -24,6 +24,8 @@ import (
 
 	v1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	"golang.org/x/net/context"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"sigs.k8s.io/node-feature-discovery/pkg/apihelper"
 	nfdclient "sigs.k8s.io/node-feature-discovery/pkg/nfd-client"
@@ -92,7 +94,20 @@ func (w *nfdTopologyUpdater) Run() error {
 		return err
 	}
 
-	kubeApihelper := apihelper.K8sHelpers{Kubeconfig: w.args.KubeConfigFile}
+	var kubeApihelper apihelper.K8sHelpers
+	if !w.args.NoPublish {
+		var kubeconfig *restclient.Config
+		if w.args.KubeConfigFile == "" {
+			kubeconfig, err = restclient.InClusterConfig()
+		} else {
+			kubeconfig, err = clientcmd.BuildConfigFromFlags("", w.args.KubeConfigFile)
+		}
+		if err != nil {
+			return err
+		}
+		kubeApihelper = apihelper.K8sHelpers{Kubeconfig: kubeconfig}
+	}
+
 	var resScan resourcemonitor.ResourcesScanner
 
 	resScan, err = resourcemonitor.NewPodResourcesScanner(w.resourcemonitorArgs.Namespace, podResClient, kubeApihelper)

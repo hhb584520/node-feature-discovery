@@ -39,6 +39,8 @@ import (
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/node-feature-discovery/pkg/apihelper"
@@ -111,6 +113,7 @@ type nfdMaster struct {
 	stop         chan struct{}
 	ready        chan bool
 	apihelper    apihelper.APIHelpers
+	kubeconfig   *restclient.Config
 }
 
 // Create new NfdMaster server instance.
@@ -146,7 +149,13 @@ func NewNfdMaster(args *Args) (NfdMaster, error) {
 	}
 
 	// Initialize Kubernetes API helpers
-	nfd.apihelper = apihelper.K8sHelpers{Kubeconfig: args.Kubeconfig}
+	if !args.NoPublish {
+		kubeconfig, err := nfd.getKubeconfig()
+		if err != nil {
+			return nfd, err
+		}
+		nfd.apihelper = apihelper.K8sHelpers{Kubeconfig: kubeconfig}
+	}
 
 	return nfd, nil
 }
@@ -518,6 +527,18 @@ func (m *nfdMaster) updateNodeFeatures(nodeName string, labels Labels, annotatio
 
 func (m *nfdMaster) annotationName(name string) string {
 	return path.Join(m.annotationNs, name)
+}
+
+func (m *nfdMaster) getKubeconfig() (*restclient.Config, error) {
+	var err error
+	if m.kubeconfig == nil {
+		if m.args.Kubeconfig == "" {
+			m.kubeconfig, err = restclient.InClusterConfig()
+		} else {
+			m.kubeconfig, err = clientcmd.BuildConfigFromFlags("", m.args.Kubeconfig)
+		}
+	}
+	return m.kubeconfig, err
 }
 
 // Remove any labels having the given prefix
