@@ -190,6 +190,18 @@
 #        - cpu.cpuid:
 #            '*': {op: InRegexp, value: ["^AVX512"]}
 #
+#    # The following examples demonstrate the noLabel field and back-referencing
+#    - name: "my.dummy.feature"
+#      matchAll:
+#        - cpu.cpuid:
+#      noLabel: true
+#
+#    - name: "my.combo.feature"
+#      matchAll:
+#        - rule.matched:
+#            my.ng.feature: {op: IsTrue}
+#            my.dummy.feature: {op: Istrue}
+#
 #    # The following features demonstreate label templating capabilities
 #    - name: "my-template-test"
 #      labelsTemplate: |

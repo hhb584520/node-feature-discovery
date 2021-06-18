@@ -63,6 +63,25 @@ type Rule struct {
 	// +optional
 	LabelsTemplate string `json:"labelsTemplate"`
 
+	// Vars is the variables to store if the rule matches. Variables do not
+	// directly inflict any changes in the node object. However, they can be
+	// referenced from other rules enabling more complex rule hierarchies,
+	// without exposing intermediary output values as labels.
+	// +optional
+	Vars map[string]string `json:"vars"`
+
+	// VarsTemplate specifies a template to expand for dynamically generating
+	// multiple variables. Data (after template expansion) must be keys with an
+	// optional value (<key>[=<value>]) separated by newlines.
+	// +optional
+	VarsTemplate string `json:"varsTemplate"`
+
+	// NoLabel disables the label output of the rule. Output value(s) of the
+	// matching process are only added as values under a special "MATCHES" key
+	// for subsequent rules to use as input features for matching.
+	// +optional
+	NoLabel bool `json:"noLabel"`
+
 	// MatchFeatures specifies a set of matcher terms all of which must match.
 	// +optional
 	MatchFeatures FeatureMatcher `json:"matchFeatures"`
@@ -71,8 +90,9 @@ type Rule struct {
 	// +optional
 	MatchAny []MatchAnyElem `json:"matchAny"`
 
-	// labelsTemplate is a private helper/cache for handling golang templates
+	// private helpers/cache for handling golang templates
 	labelsTemplate *templateHelper `json:"-"`
+	varsTemplate   *templateHelper `json:"-"`
 }
 
 // MatchAnyElem specifies one sub-matcher of MatchAny.
@@ -178,3 +198,12 @@ const (
 // MatchAllNames is a special key in MatchExpressionSet to use field names
 // (keys from the input) instead of values when matching.
 const MatchAllNames = "*"
+
+const (
+	// RuleBackrefDomain is the special feature domain for backreferencing
+	// output of preceding rules.
+	RuleBackrefDomain = "rule"
+	// RuleBackrefFeature is the special feature name for backreferencing
+	// output of preceding rules.
+	RuleBackrefFeature = "matched"
+)

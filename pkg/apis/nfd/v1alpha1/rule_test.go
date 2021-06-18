@@ -39,7 +39,7 @@ func TestRule(t *testing.T) {
 	// Test totally empty features
 	m, err := r1.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r1.Labels, m, "empty matcher should have matched empty features")
+	assert.Equal(t, r1.Labels, m.Labels, "empty matcher should have matched empty features")
 
 	_, err = r2.Execute(f)
 	assert.Error(t, err, "matching agains a missing domain should have returned an error")
@@ -50,7 +50,7 @@ func TestRule(t *testing.T) {
 
 	m, err = r1.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r1.Labels, m, "empty matcher should have matched empty features")
+	assert.Equal(t, r1.Labels, m.Labels, "empty matcher should have matched empty features")
 
 	_, err = r2.Execute(f)
 	assert.Error(t, err, "matching agains a missing feature type should have returned an error")
@@ -62,11 +62,11 @@ func TestRule(t *testing.T) {
 
 	m, err = r1.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r1.Labels, m, "empty matcher should have matched empty features")
+	assert.Equal(t, r1.Labels, m.Labels, "empty matcher should have matched empty features")
 
 	m, err = r2.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Nil(t, m, "unexpected match")
+	assert.Nil(t, m.Labels, "unexpected match")
 
 	// Test non-empty feature sets
 	d.Keys["kf-1"].Elements["key-x"] = feature.Nil{}
@@ -76,17 +76,17 @@ func TestRule(t *testing.T) {
 
 	m, err = r1.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r1.Labels, m, "empty matcher should have matched empty features")
+	assert.Equal(t, r1.Labels, m.Labels, "empty matcher should have matched empty features")
 
 	// Match "key" features
 	m, err = r2.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Nil(t, m, "keys should not have matched")
+	assert.Nil(t, m.Labels, "keys should not have matched")
 
 	d.Keys["kf-1"].Elements["key-1"] = feature.Nil{}
 	m, err = r2.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r2.Labels, m, "keys should have matched")
+	assert.Equal(t, r2.Labels, m.Labels, "keys should have matched")
 
 	// Match "value" features
 	r3 := Rule{
@@ -100,12 +100,12 @@ func TestRule(t *testing.T) {
 	}
 	m, err = r3.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Nil(t, m, "values should not have matched")
+	assert.Nil(t, m.Labels, "values should not have matched")
 
 	d.Values["vf-1"].Elements["key-1"] = "val-1"
 	m, err = r3.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r3.Labels, m, "values should have matched")
+	assert.Equal(t, r3.Labels, m.Labels, "values should have matched")
 
 	// Match "instance" features
 	r4 := Rule{
@@ -119,12 +119,12 @@ func TestRule(t *testing.T) {
 	}
 	m, err = r4.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Nil(t, m, "instances should not have matched")
+	assert.Nil(t, m.Labels, "instances should not have matched")
 
 	d.Instances["if-1"].Elements[0].Attributes["attr-1"] = "val-1"
 	m, err = r4.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r4.Labels, m, "instances should have matched")
+	assert.Equal(t, r4.Labels, m.Labels, "instances should have matched")
 
 	// Test multiple feature matchers
 	r5 := Rule{
@@ -142,12 +142,12 @@ func TestRule(t *testing.T) {
 	}
 	m, err = r5.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Nil(t, m, "instances should not have matched")
+	assert.Nil(t, m.Labels, "instances should not have matched")
 
 	r5.MatchFeatures[0].MatchExpressions.Expressions["key-1"] = MustCreateMatchExpression(MatchIn, "val-1")
 	m, err = r5.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r5.Labels, m, "instances should have matched")
+	assert.Equal(t, r5.Labels, m.Labels, "instances should have matched")
 
 	// Test MatchAny
 	r5.MatchAny = []MatchAnyElem{
@@ -162,7 +162,7 @@ func TestRule(t *testing.T) {
 	}
 	m, err = r5.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Nil(t, m, "instances should not have matched")
+	assert.Nil(t, m.Labels, "instances should not have matched")
 
 	r5.MatchAny = append(r5.MatchAny,
 		MatchAnyElem{
@@ -176,7 +176,7 @@ func TestRule(t *testing.T) {
 	r5.MatchFeatures[0].MatchExpressions.Expressions["key-1"] = MustCreateMatchExpression(MatchIn, "val-1")
 	m, err = r5.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, r5.Labels, m, "instances should have matched")
+	assert.Equal(t, r5.Labels, m.Labels, "instances should have matched")
 }
 
 func TestTemplating(t *testing.T) {
@@ -280,7 +280,7 @@ func TestTemplating(t *testing.T) {
 
 	m, err := r1.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, expectedLabels, m, "instances should have matched")
+	assert.Equal(t, expectedLabels, m.Labels, "instances should have matched")
 
 	// Test wildcard
 	r2 := Rule{
@@ -305,5 +305,5 @@ func TestTemplating(t *testing.T) {
 
 	m, err = r2.Execute(f)
 	assert.Nilf(t, err, "unexpected error: %v", err)
-	assert.Equal(t, expectedLabels, m, "instances should have matched")
+	assert.Equal(t, expectedLabels, m.Labels, "instances should have matched")
 }
