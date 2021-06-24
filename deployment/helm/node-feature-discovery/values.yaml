@@ -237,6 +237,10 @@ worker:
     #            major: {op: In, value: ["5"]}
     #            minor: {op: Gt, value: ["10"]}
     #
+    #        - network.device:
+    #            operstate: {op: In, value: ["up"]}
+    #            speed: {op: Gt, value: ["100"]}
+    #
     #        - storage.block:
     #            rotational: {op: In, value: ["0"]}
     #            dax: {op: In, value: ["0"]}

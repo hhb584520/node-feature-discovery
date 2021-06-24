@@ -46,6 +46,11 @@ spec:
             major: {op: In, value: ["5"]}
             minor: {op: Gt, value: ["10"]}
 
+        - feature: network.device
+          matchExpressions:
+            operstate: {op: In, value: ["up"]}
+            speed: {op: Gt, value: ["100"]}
+
         - feature: storage.block
           matchExpressions:
             rotational: {op: In, value: ["0"]}
