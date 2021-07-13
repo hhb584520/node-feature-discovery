@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -622,7 +622,7 @@ func updateMap(data []*topologypb.CostInfo) []v1alpha1.CostInfo {
 	for i, cost := range data {
 		ret[i] = v1alpha1.CostInfo{
 			Name:  cost.Name,
-			Value: int(cost.Value),
+			Value: int64(cost.Value),
 		}
 	}
 	return ret
@@ -635,8 +635,8 @@ func modifyCR(topoUpdaterZones []*topologypb.Zone) []v1alpha1.Zone {
 		for j, info := range zone.Resources {
 			resInfo[j] = v1alpha1.ResourceInfo{
 				Name:        info.Name,
-				Allocatable: intstr.FromString(info.Allocatable),
-				Capacity:    intstr.FromString(info.Capacity),
+				Allocatable: resource.MustParse(info.Allocatable),
+				Capacity:    resource.MustParse(info.Capacity),
 			}
 		}
 

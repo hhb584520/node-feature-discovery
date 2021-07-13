@@ -19,12 +19,12 @@ package resourcemonitor
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog/v2"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	"github.com/jaypipes/ghw"
@@ -121,8 +121,8 @@ func (noderesourceData *nodeResources) Aggregate(podResData []PodResources) topo
 			capacityQty := *resource.NewQuantity(resData.capacity, resource.DecimalSI)
 			zone.Resources = append(zone.Resources, topologyv1alpha1.ResourceInfo{
 				Name:        name.String(),
-				Allocatable: intstr.FromString(allocatableQty.String()),
-				Capacity:    intstr.FromString(capacityQty.String()),
+				Allocatable: allocatableQty,
+				Capacity:    capacityQty,
 			})
 		}
 		zones = append(zones, zone)
@@ -256,7 +256,7 @@ func makeCostsPerNumaNode(nodes []*ghw.TopologyNode, nodeIDSrc int) ([]topologyv
 		// TODO: this assumes there are no holes (= no offline node) in the distance vector
 		nodeCosts = append(nodeCosts, topologyv1alpha1.CostInfo{
 			Name:  makeZoneName(nodeIDDst),
-			Value: dist,
+			Value: int64(dist),
 		})
 	}
 	return nodeCosts, nil

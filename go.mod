@@ -32,6 +32,7 @@ require (
 // need to override with commits (corresponding their kubernetes-* tags)
 replace (
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+	github.com/k8stopologyawareschedwg/noderesourcetopology-api => github.com/swatisehgal/noderesourcetopology-api v0.0.6-0.20210720190713-e25dfd6c2e20
 	google.golang.org/grpc => google.golang.org/grpc v1.27.1
 	k8s.io/api => k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.21.2

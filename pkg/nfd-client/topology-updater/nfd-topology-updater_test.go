@@ -24,7 +24,7 @@ import (
 
 	v1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
 	. "github.com/smartystreets/goconvey/convey"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/api/resource"
 	nfdclient "sigs.k8s.io/node-feature-discovery/pkg/nfd-client"
 	u "sigs.k8s.io/node-feature-discovery/pkg/nfd-client/topology-updater"
 	nfdmaster "sigs.k8s.io/node-feature-discovery/pkg/nfd-master"
@@ -93,8 +93,8 @@ func TestUpdate(t *testing.T) {
 	resourceInfo := v1alpha1.ResourceInfoList{
 		v1alpha1.ResourceInfo{
 			Name:        "cpu",
-			Allocatable: intstr.FromString("2"),
-			Capacity:    intstr.FromString("4"),
+			Allocatable: resource.MustParse("2"),
+			Capacity:    resource.MustParse("4"),
 		},
 	}
 	zones := v1alpha1.ZoneList{
@@ -135,8 +135,8 @@ func TestRunTls(t *testing.T) {
 			resourceInfo := v1alpha1.ResourceInfoList{
 				v1alpha1.ResourceInfo{
 					Name:        "cpu",
-					Allocatable: intstr.FromString("2"),
-					Capacity:    intstr.FromString("4"),
+					Allocatable: resource.MustParse("2"),
+					Capacity:    resource.MustParse("4"),
 				},
 			}
 			zones := v1alpha1.ZoneList{
