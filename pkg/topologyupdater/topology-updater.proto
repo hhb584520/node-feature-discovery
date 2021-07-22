@@ -15,9 +15,9 @@ limitations under the License.
 */
 syntax = "proto3";
 
-//option go_package = "sigs.k8s.io/node-feature-discovery/pkg/topologyupdater";
+option go_package = "sigs.k8s.io/node-feature-discovery/pkg/topologyupdater";
 
-import "github.com/k8stopologyawareschedwg/noderesourcetology-api/pkg/apis/topology/v1alpha1/generated.proto";
+import "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1/generated.proto";
 
 package topologyupdater;
 
