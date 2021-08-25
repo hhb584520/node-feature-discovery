@@ -237,6 +237,12 @@ worker:
     #            major: {op: In, value: ["5"]}
     #            minor: {op: Gt, value: ["10"]}
     #
+    #        - memory.numa:
+    #            node_count: {op: Gt, value: ["2"]}
+    #        - memory.nv:
+    #            devtype: {op: In, value: ["nd_dax"]}
+    #            mode: {op: In, value: ["memory"]}
+    #
     #        - network.device:
     #            operstate: {op: In, value: ["up"]}
     #            speed: {op: Gt, value: ["100"]}

@@ -46,6 +46,14 @@ spec:
             major: {op: In, value: ["5"]}
             minor: {op: Gt, value: ["10"]}
 
+        - feature: memory.numa
+          matchExpressions:
+            node_count: {op: Gt, value: ["2"]}
+        - feature: memory.nv
+          matchExpressions:
+            devtype: {op: In, value: ["nd_dax"]}
+            mode: {op: In, value: ["memory"]}
+
         - feature: network.device
           matchExpressions:
             operstate: {op: In, value: ["up"]}
