@@ -45,8 +45,10 @@ core:
 
 ### core.sources
 
-`core.sources` specifies the list of enabled feature sources. A special value
-`all` enables all feature sources.
+`core.sources` specifies the list of enabled feature label sources. A special
+value `all` enables all sources. This configuration option affects the feature
+labels that are being generated but not the discovery of raw features that are
+available for custom labels.
 
 Note: Overridden by the deprecated `--sources` command line flag (if
 specified).
@@ -60,6 +62,24 @@ core:
   sources:
     - system
     - custom
+```
+
+### core.rawFeatureSources
+
+`core.rawFeatureSources` specifies the list of enabled raw feature sources. A
+special value `all` enables all sources. The option allows disabling the raw
+feature detection of sources so that neither standard feature labels are
+generated nor the raw features are available for custom rule processing.
+
+Default: `[all]`
+
+Example:
+
+```yaml
+core:
+  rawFeatureSources:
+    - cpu
+    - local
 ```
 
 ### core.labelWhiteList

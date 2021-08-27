@@ -61,11 +61,12 @@ type NFDConfig struct {
 }
 
 type coreConfig struct {
-	Klog           map[string]string
-	LabelWhiteList utils.RegexpVal
-	NoPublish      bool
-	Sources        []string
-	SleepInterval  duration
+	Klog              map[string]string
+	LabelWhiteList    utils.RegexpVal
+	NoPublish         bool
+	RawFeatureSources []string
+	Sources           []string
+	SleepInterval     duration
 }
 
 type sourcesConfig map[string]source.Config
@@ -104,6 +105,7 @@ type nfdWorker struct {
 	configFilePath string
 	config         *NFDConfig
 	stop           chan struct{} // channel for signaling stop
+	featureSources []source.FeatureSource
 	labelSources   []source.LabelSource
 }
 
@@ -136,10 +138,11 @@ func NewNfdWorker(args *Args) (nfdclient.NfdClient, error) {
 func newDefaultConfig() *NFDConfig {
 	return &NFDConfig{
 		Core: coreConfig{
-			LabelWhiteList: utils.RegexpVal{Regexp: *regexp.MustCompile("")},
-			SleepInterval:  duration{60 * time.Second},
-			Sources:        []string{"all"},
-			Klog:           make(map[string]string),
+			LabelWhiteList:    utils.RegexpVal{Regexp: *regexp.MustCompile("")},
+			SleepInterval:     duration{60 * time.Second},
+			RawFeatureSources: []string{"all"},
+			Sources:           []string{"all"},
+			Klog:              make(map[string]string),
 		},
 	}
 }
@@ -177,10 +180,10 @@ func (w *nfdWorker) Run() error {
 		select {
 		case <-labelTrigger:
 			// Run feature discovery
-			for n, s := range source.GetAllFeatureSources() {
-				klog.V(2).Infof("running discovery for %q source", n)
+			for _, s := range w.featureSources {
+				klog.V(2).Infof("running discovery for %q source", s.Name())
 				if err := s.Discover(); err != nil {
-					klog.Errorf("feature discovery of %q source failed: %v", n, err)
+					klog.Errorf("feature discovery of %q source failed: %v", s.Name(), err)
 				}
 			}
 
@@ -189,7 +192,7 @@ func (w *nfdWorker) Run() error {
 
 			// Update the node with the feature labels.
 			if w.client != nil {
-				err := advertiseFeatureLabels(w.client, labels)
+				err := w.advertiseFeatureLabels(labels)
 				if err != nil {
 					return fmt.Errorf("failed to advertise labels: %s", err.Error())
 				}
@@ -292,6 +295,29 @@ func (w *nfdWorker) configureCore(c coreConfig) error {
 		}
 	}
 
+	// Determine enabled feature sources
+	featureSources := make(map[string]source.FeatureSource)
+	for _, name := range c.RawFeatureSources {
+		if name == "all" {
+			for n, s := range source.GetAllFeatureSources() {
+				if ts, ok := s.(source.TestSource); !ok || !ts.IsTestSource() {
+					featureSources[n] = s
+				}
+			}
+		} else {
+			if s := source.GetFeatureSource(name); s != nil {
+				featureSources[name] = s
+			} else {
+				klog.Warningf("skipping unknown feature source %q specified in core.rawFeatureSources", name)
+			}
+		}
+	}
+
+	w.featureSources = make([]source.FeatureSource, 0, len(featureSources))
+	for _, s := range featureSources {
+		w.featureSources = append(w.featureSources, s)
+	}
+
 	// Determine enabled label sources
 	labelSources := make(map[string]source.LabelSource)
 	for _, name := range c.Sources {
@@ -324,7 +350,13 @@ func (w *nfdWorker) configureCore(c coreConfig) error {
 	})
 
 	if klog.V(1).Enabled() {
-		n := make([]string, len(w.labelSources))
+		n := make([]string, len(w.featureSources))
+		for i, s := range w.featureSources {
+			n[i] = s.Name()
+		}
+		klog.Infof("enabled raw feature sources: %s", strings.Join(n, ", "))
+
+		n = make([]string, len(w.labelSources))
 		for i, s := range w.labelSources {
 			n[i] = s.Name()
 		}
@@ -481,11 +513,11 @@ func getFeatureLabels(source source.LabelSource, labelWhiteList regexp.Regexp) (
 }
 
 // getFeatures returns raw features from all feature sources
-func getFeatures() map[string]*feature.DomainFeatures {
+func (w *nfdWorker) getFeatures() map[string]*feature.DomainFeatures {
 	features := make(map[string]*feature.DomainFeatures)
 
-	for name, src := range source.GetAllFeatureSources() {
-		features[name] = src.GetFeatures()
+	for _, src := range w.featureSources {
+		features[src.Name()] = src.GetFeatures()
 	}
 
 	return features
@@ -493,17 +525,17 @@ func getFeatures() map[string]*feature.DomainFeatures {
 
 // advertiseFeatureLabels advertises the feature labels to a Kubernetes node
 // via the NFD server.
-func advertiseFeatureLabels(client pb.LabelerClient, labels Labels) error {
+func (w *nfdWorker) advertiseFeatureLabels(labels Labels) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	klog.Infof("sending labeling request to nfd-master")
 
 	labelReq := pb.SetLabelsRequest{Labels: labels,
-		Features:   getFeatures(),
+		Features:   w.getFeatures(),
 		NfdVersion: version.Get(),
 		NodeName:   nfdclient.NodeName()}
-	_, err := client.SetLabels(ctx, &labelReq)
+	_, err := w.client.SetLabels(ctx, &labelReq)
 	if err != nil {
 		klog.Errorf("failed to set node labels: %v", err)
 		return err

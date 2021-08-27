@@ -376,12 +376,18 @@ func TestCreateFeatureLabels(t *testing.T) {
 
 func TestAdvertiseFeatureLabels(t *testing.T) {
 	Convey("When advertising labels", t, func() {
+		w, err := NewNfdWorker(&Args{})
+		So(err, ShouldBeNil)
+		worker := w.(*nfdWorker)
+
 		mockClient := &labeler.MockLabelerClient{}
+		worker.client = mockClient
+
 		labels := map[string]string{"feature-1": "value-1"}
 
 		Convey("Correct labeling request is sent", func() {
 			mockClient.On("SetLabels", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*labeler.SetLabelsRequest")).Return(&labeler.SetLabelsReply{}, nil)
-			err := advertiseFeatureLabels(mockClient, labels)
+			err := worker.advertiseFeatureLabels(labels)
 			Convey("There should be no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -389,7 +395,7 @@ func TestAdvertiseFeatureLabels(t *testing.T) {
 		Convey("Labeling request fails", func() {
 			mockErr := errors.New("mock-error")
 			mockClient.On("SetLabels", mock.AnythingOfType("*context.timerCtx"), mock.AnythingOfType("*labeler.SetLabelsRequest")).Return(&labeler.SetLabelsReply{}, mockErr)
-			err := advertiseFeatureLabels(mockClient, labels)
+			err := worker.advertiseFeatureLabels(labels)
 			Convey("An error should be returned", func() {
 				So(err, ShouldEqual, mockErr)
 			})

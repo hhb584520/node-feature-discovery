@@ -3,6 +3,7 @@
 #  noPublish: false
 #  sleepInterval: 60s
 #  sources: [all]
+#  rawFeatureSources: [all]
 #  klog:
 #    addDirHeader: false
 #    alsologtostderr: false
