@@ -43,6 +43,8 @@ var matchOps = map[MatchOp]struct{}{
 	MatchIsFalse:      struct{}{},
 }
 
+type valueRegexpCache []*regexp.Regexp
+
 // NewMatchExpressionSet returns a new MatchExpressionSet instance.
 func NewMatchExpressionSet() *MatchExpressionSet {
 	return &MatchExpressionSet{Expressions: make(Expressions)}
@@ -557,4 +559,22 @@ func (m *MatchValue) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// DeepCopy supplements the auto-generated code
+func (in *valueRegexpCache) DeepCopy() *valueRegexpCache {
+	if in == nil {
+		return nil
+	}
+	out := new(valueRegexpCache)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto is a stub to augment the auto-generated code
+func (in *valueRegexpCache) DeepCopyInto(out *valueRegexpCache) {
+	*out = make(valueRegexpCache, len(*in))
+	for i, re := range *in {
+		(*out)[i] = re.Copy()
+	}
 }
