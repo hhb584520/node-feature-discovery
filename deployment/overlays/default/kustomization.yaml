@@ -5,6 +5,7 @@ namespace: node-feature-discovery
 
 bases:
 - ../../base/rbac
+- ../../base/crd
 - ../../base/master
 - ../../base/worker-daemonset
 
