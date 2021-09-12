@@ -22,14 +22,14 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/jaypipes/ghw"
-
-	cmp "github.com/google/go-cmp/cmp"
 	. "github.com/smartystreets/goconvey/convey"
+
 	"k8s.io/apimachinery/pkg/api/resource"
+	v1 "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
-	v1 "k8s.io/kubelet/pkg/apis/podresources/v1"
 )
 
 func TestResourcesAggregator(t *testing.T) {
@@ -45,78 +45,78 @@ func TestResourcesAggregator(t *testing.T) {
 	Convey("When I aggregate the node resources fake data and no pod allocation", t, func() {
 		availRes := &v1.AllocatableResourcesResponse{
 			Devices: []*v1.ContainerDevices{
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netAAA-0"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 0,
 							},
 						},
 					},
 				},
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netAAA-1"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 0,
 							},
 						},
 					},
 				},
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netAAA-2"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 0,
 							},
 						},
 					},
 				},
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netAAA-3"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 0,
 							},
 						},
 					},
 				},
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netBBB-0"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 1,
 							},
 						},
 					},
 				},
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netBBB-1"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 1,
 							},
 						},
 					},
 				},
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/gpu",
 					DeviceIds:    []string{"gpuAAA"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 1,
 							},
 						},
@@ -128,6 +128,41 @@ func TestResourcesAggregator(t *testing.T) {
 			CpuIds: []int64{
 				2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+			},
+			Memory: []*v1.ContainerMemory{
+				{
+					MemoryType: "memory",
+					Size_:      1024,
+					Topology: &v1.TopologyInfo{
+						Nodes: []*v1.NUMANode{
+							{
+								ID: 0,
+							},
+						},
+					},
+				},
+				{
+					MemoryType: "memory",
+					Size_:      1024,
+					Topology: &v1.TopologyInfo{
+						Nodes: []*v1.NUMANode{
+							{
+								ID: 1,
+							},
+						},
+					},
+				},
+				{
+					MemoryType: "hugepages-2Mi",
+					Size_:      1024,
+					Topology: &v1.TopologyInfo{
+						Nodes: []*v1.NUMANode{
+							{
+								ID: 1,
+							},
+						},
+					},
+				},
 			},
 		}
 
@@ -151,15 +186,21 @@ func TestResourcesAggregator(t *testing.T) {
 					Resources: topologyv1alpha1.ResourceInfoList{
 						topologyv1alpha1.ResourceInfo{
 							Name:        "cpu",
-							Available:   resource.MustParse("11"),
-							Allocatable: resource.MustParse("11"),
-							Capacity:    resource.MustParse("12"),
+							Available:   *resource.NewQuantity(11, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(11, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(12, resource.DecimalSI),
 						},
 						topologyv1alpha1.ResourceInfo{
 							Name:        "fake.io/net",
-							Available:   resource.MustParse("4"),
-							Allocatable: resource.MustParse("4"),
-							Capacity:    resource.MustParse("4"),
+							Available:   *resource.NewQuantity(4, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(4, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(4, resource.DecimalSI),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   *resource.NewQuantity(1024, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
 						},
 					},
 				},
@@ -179,21 +220,33 @@ func TestResourcesAggregator(t *testing.T) {
 					Resources: topologyv1alpha1.ResourceInfoList{
 						topologyv1alpha1.ResourceInfo{
 							Name:        "cpu",
-							Available:   resource.MustParse("11"),
-							Allocatable: resource.MustParse("11"),
-							Capacity:    resource.MustParse("12"),
+							Available:   *resource.NewQuantity(11, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(11, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(12, resource.DecimalSI),
 						},
 						topologyv1alpha1.ResourceInfo{
 							Name:        "fake.io/gpu",
-							Available:   resource.MustParse("1"),
-							Allocatable: resource.MustParse("1"),
-							Capacity:    resource.MustParse("1"),
+							Available:   *resource.NewQuantity(1, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1, resource.DecimalSI),
 						},
 						topologyv1alpha1.ResourceInfo{
 							Name:        "fake.io/net",
-							Available:   resource.MustParse("4"),
-							Allocatable: resource.MustParse("4"),
-							Capacity:    resource.MustParse("4"),
+							Available:   *resource.NewQuantity(2, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(2, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(2, resource.DecimalSI),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "hugepages-2Mi",
+							Available:   *resource.NewQuantity(1024, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   *resource.NewQuantity(1024, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
 						},
 					},
 				},
@@ -213,8 +266,9 @@ func TestResourcesAggregator(t *testing.T) {
 					return resource.Resources[x].Name < resource.Resources[y].Name
 				})
 			}
-			log.Printf("result=%v", res)
-			log.Printf("expected=%v", expected)
+
+			log.Printf("result=%+v", res)
+			log.Printf("expected=%+v", expected)
 			log.Printf("diff=%s", cmp.Diff(res, expected))
 			So(cmp.Equal(res, expected), ShouldBeFalse)
 		})
@@ -223,34 +277,34 @@ func TestResourcesAggregator(t *testing.T) {
 	Convey("When I aggregate the node resources fake data and some pod allocation", t, func() {
 		availRes := &v1.AllocatableResourcesResponse{
 			Devices: []*v1.ContainerDevices{
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netAAA"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 0,
 							},
 						},
 					},
 				},
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/net",
 					DeviceIds:    []string{"netBBB"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 1,
 							},
 						},
 					},
 				},
-				&v1.ContainerDevices{
+				{
 					ResourceName: "fake.io/gpu",
 					DeviceIds:    []string{"gpuAAA"},
 					Topology: &v1.TopologyInfo{
 						Nodes: []*v1.NUMANode{
-							&v1.NUMANode{
+							{
 								ID: 1,
 							},
 						},
@@ -263,26 +317,71 @@ func TestResourcesAggregator(t *testing.T) {
 				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
 				12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 			},
+			Memory: []*v1.ContainerMemory{
+				{
+					MemoryType: "memory",
+					Size_:      1024,
+					Topology: &v1.TopologyInfo{
+						Nodes: []*v1.NUMANode{
+							{
+								ID: 0,
+							},
+						},
+					},
+				},
+				{
+					MemoryType: "memory",
+					Size_:      1024,
+					Topology: &v1.TopologyInfo{
+						Nodes: []*v1.NUMANode{
+							{
+								ID: 1,
+							},
+						},
+					},
+				},
+				{
+					MemoryType: "hugepages-2Mi",
+					Size_:      1024,
+					Topology: &v1.TopologyInfo{
+						Nodes: []*v1.NUMANode{
+							{
+								ID: 1,
+							},
+						},
+					},
+				},
+			},
 		}
 
 		resAggr = NewResourcesAggregatorFromData(&fakeTopo, availRes)
 
 		Convey("When aggregating resources", func() {
 			podRes := []PodResources{
-				PodResources{
+				{
 					Name:      "test-pod-0",
 					Namespace: "default",
 					Containers: []ContainerResources{
-						ContainerResources{
+						{
 							Name: "test-cnt-0",
 							Resources: []ResourceInfo{
-								ResourceInfo{
+								{
 									Name: "cpu",
 									Data: []string{"5", "7"},
 								},
-								ResourceInfo{
+								{
 									Name: "fake.io/net",
 									Data: []string{"netBBB"},
+								},
+								{
+									Name:     "memory",
+									Data:     []string{"512"},
+									Topology: []int{1},
+								},
+								{
+									Name:     "hugepages-2Mi",
+									Data:     []string{"512"},
+									Topology: []int{1},
 								},
 							},
 						},
@@ -307,15 +406,21 @@ func TestResourcesAggregator(t *testing.T) {
 					Resources: topologyv1alpha1.ResourceInfoList{
 						topologyv1alpha1.ResourceInfo{
 							Name:        "cpu",
-							Available:   resource.MustParse("11"),
-							Allocatable: resource.MustParse("11"),
-							Capacity:    resource.MustParse("12"),
+							Available:   *resource.NewQuantity(11, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(11, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(12, resource.DecimalSI),
 						},
 						topologyv1alpha1.ResourceInfo{
 							Name:        "fake.io/net",
-							Available:   resource.MustParse("1"),
-							Allocatable: resource.MustParse("1"),
-							Capacity:    resource.MustParse("1"),
+							Available:   *resource.NewQuantity(1, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1, resource.DecimalSI),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   *resource.NewQuantity(1024, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
 						},
 					},
 				},
@@ -336,20 +441,32 @@ func TestResourcesAggregator(t *testing.T) {
 						topologyv1alpha1.ResourceInfo{
 							Name:        "cpu",
 							Available:   resource.MustParse("10"),
-							Allocatable: resource.MustParse("12"),
-							Capacity:    resource.MustParse("12"),
+							Allocatable: *resource.NewQuantity(12, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(12, resource.DecimalSI),
 						},
 						topologyv1alpha1.ResourceInfo{
 							Name:        "fake.io/gpu",
-							Available:   resource.MustParse("1"),
-							Allocatable: resource.MustParse("1"),
-							Capacity:    resource.MustParse("1"),
+							Available:   *resource.NewQuantity(1, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1, resource.DecimalSI),
 						},
 						topologyv1alpha1.ResourceInfo{
 							Name:        "fake.io/net",
-							Available:   resource.MustParse("0"),
-							Allocatable: resource.MustParse("1"),
-							Capacity:    resource.MustParse("1"),
+							Available:   *resource.NewQuantity(0, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1, resource.DecimalSI),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "hugepages-2Mi",
+							Available:   *resource.NewQuantity(512, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
+						},
+						topologyv1alpha1.ResourceInfo{
+							Name:        "memory",
+							Available:   *resource.NewQuantity(512, resource.DecimalSI),
+							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
 						},
 					},
 				},
@@ -369,8 +486,8 @@ func TestResourcesAggregator(t *testing.T) {
 					return resource.Resources[x].Name < resource.Resources[y].Name
 				})
 			}
-			log.Printf("result=%v", res)
-			log.Printf("expected=%v", expected)
+			log.Printf("result=%+v", res)
+			log.Printf("expected=%+v", expected)
 			log.Printf("diff=%s", cmp.Diff(res, expected))
 			So(cmp.Equal(res, expected), ShouldBeTrue)
 		})
@@ -379,7 +496,7 @@ func TestResourcesAggregator(t *testing.T) {
 }
 
 // ghwc topology -f json
-var testTopology string = `{
+var testTopology = `{
     "nodes": [
       {
         "id": 0,
