@@ -19,14 +19,18 @@ package resourcemonitor
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jaypipes/ghw"
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+
 	"sigs.k8s.io/node-feature-discovery/source"
 )
 
@@ -77,7 +81,7 @@ func NewResourcesAggregatorFromData(topo *ghw.TopologyInfo, resp *podresourcesap
 	return &nodeResources{
 		topo:                 topo,
 		resourceID2NUMAID:    makeResourceMap(len(topo.Nodes), allDevs),
-		perNUMAAllocatable:   makeNodeAllocatable(allDevs),
+		perNUMAAllocatable:   makeNodeAllocatable(allDevs, resp.GetMemory()),
 		reservedCPUIDPerNUMA: makeReservedCPUMap(topo.Nodes, allDevs),
 	}
 }
@@ -119,6 +123,11 @@ func (noderesourceData *nodeResources) Aggregate(podResData []PodResources) topo
 	for _, podRes := range podResData {
 		for _, contRes := range podRes.Containers {
 			for _, res := range contRes.Resources {
+				if res.Name == v1.ResourceMemory || strings.HasPrefix(string(res.Name), v1.ResourceHugePagesPrefix) {
+					noderesourceData.updateMemoryAvailable(perNuma, res)
+					continue
+				}
+
 				noderesourceData.updateAvailable(perNuma, res)
 			}
 		}
@@ -136,7 +145,7 @@ func (noderesourceData *nodeResources) Aggregate(podResData []PodResources) topo
 		if err != nil {
 			klog.Infof("cannot find costs for NUMA node %d: %v", nodeID, err)
 		} else {
-			zone.Costs = topologyv1alpha1.CostList(costs)
+			zone.Costs = costs
 		}
 
 		for name, resData := range resList {
@@ -219,7 +228,7 @@ func makeZoneName(nodeID int) string {
 // makeNodeAllocatable computes the node allocatable as mapping (NUMA node ID) -> Resource -> Allocatable (amount, int).
 // The computation is done assuming all the resources to represent the allocatable for are represented on a slice
 // of ContainerDevices. No special treatment is done for CPU IDs. See getContainerDevicesFromAllocatableResources.
-func makeNodeAllocatable(devices []*podresourcesapi.ContainerDevices) map[int]map[v1.ResourceName]int64 {
+func makeNodeAllocatable(devices []*podresourcesapi.ContainerDevices, memoryBlocks []*podresourcesapi.ContainerMemory) map[int]map[v1.ResourceName]int64 {
 	perNUMAAllocatable := make(map[int]map[v1.ResourceName]int64)
 	// initialize with the capacities
 	for _, device := range devices {
@@ -234,6 +243,30 @@ func makeNodeAllocatable(devices []*podresourcesapi.ContainerDevices) map[int]ma
 			perNUMAAllocatable[nodeID] = nodeRes
 		}
 	}
+
+	for _, block := range memoryBlocks {
+		memoryType := v1.ResourceName(block.GetMemoryType())
+
+		if block.GetTopology() == nil {
+			continue
+		}
+
+		for _, node := range block.GetTopology().GetNodes() {
+			nodeID := int(node.GetID())
+			if _, ok := perNUMAAllocatable[nodeID]; !ok {
+				perNUMAAllocatable[nodeID] = make(map[v1.ResourceName]int64)
+			}
+
+			if _, ok := perNUMAAllocatable[nodeID][memoryType]; !ok {
+				perNUMAAllocatable[nodeID][memoryType] = 0
+			}
+
+			// I do not like the idea to cast from uint64 to int64, but until the memory size does not go over
+			// 8589934592Gi, it should be ok
+			perNUMAAllocatable[nodeID][memoryType] += int64(block.GetSize_())
+		}
+	}
+
 	return perNUMAAllocatable
 }
 
@@ -329,4 +362,45 @@ func getCPUs(devices []*podresourcesapi.ContainerDevices) map[string]int {
 		}
 	}
 	return cpuMap
+}
+
+// updateMemoryAllocatable computes the actual amount of the allocatable memory.
+// This function assumes the allocatable resources are initialized to be equal to the capacity.
+func (noderesourceData *nodeResources) updateMemoryAvailable(numaData map[int]map[v1.ResourceName]*resourceData, ri ResourceInfo) {
+	if len(ri.Topology) == 0 {
+		klog.Warningf("failed to get the device %q NUMA nodes", string(ri.Name))
+		return
+	}
+
+	if len(ri.Data) != 1 {
+		klog.Warningf("failed to get the device %q size", string(ri.Name))
+		return
+	}
+
+	requestedSize, _ := strconv.ParseInt(ri.Data[0], 10, 64)
+	for _, numaNodeID := range ri.Topology {
+		if requestedSize == 0 {
+			return
+		}
+
+		if _, ok := numaData[numaNodeID]; !ok {
+			return
+		}
+
+		if _, ok := numaData[numaNodeID][ri.Name]; !ok {
+			return
+		}
+
+		if numaData[numaNodeID][ri.Name].available == 0 {
+			continue
+		}
+
+		if requestedSize >= numaData[numaNodeID][ri.Name].available {
+			requestedSize -= numaData[numaNodeID][ri.Name].available
+			numaData[numaNodeID][ri.Name].available = 0
+		} else {
+			numaData[numaNodeID][ri.Name].available -= requestedSize
+			requestedSize = 0
+		}
+	}
 }
