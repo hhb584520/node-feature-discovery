@@ -26,10 +26,13 @@ import (
 	"github.com/jaypipes/ghw"
 	. "github.com/smartystreets/goconvey/convey"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/kubelet/pkg/apis/podresources/v1"
 
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
+
+	"sigs.k8s.io/node-feature-discovery/pkg/utils"
 )
 
 func TestResourcesAggregator(t *testing.T) {
@@ -166,7 +169,16 @@ func TestResourcesAggregator(t *testing.T) {
 			},
 		}
 
-		resAggr = NewResourcesAggregatorFromData(&fakeTopo, availRes)
+		memoryResourcesCapacity := utils.MemoryResourcePerNUMA{
+			0: map[corev1.ResourceName]int64{
+				corev1.ResourceMemory: 2048,
+			},
+			1: map[corev1.ResourceName]int64{
+				corev1.ResourceMemory:                2048,
+				corev1.ResourceName("hugepages-2Mi"): 2048,
+			},
+		}
+		resAggr = NewResourcesAggregatorFromData(&fakeTopo, availRes, memoryResourcesCapacity)
 
 		Convey("When aggregating resources", func() {
 			expected := topologyv1alpha1.ZoneList{
@@ -200,7 +212,7 @@ func TestResourcesAggregator(t *testing.T) {
 							Name:        "memory",
 							Available:   *resource.NewQuantity(1024, resource.DecimalSI),
 							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
-							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(2048, resource.DecimalSI),
 						},
 					},
 				},
@@ -240,13 +252,13 @@ func TestResourcesAggregator(t *testing.T) {
 							Name:        "hugepages-2Mi",
 							Available:   *resource.NewQuantity(1024, resource.DecimalSI),
 							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
-							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(2048, resource.DecimalSI),
 						},
 						topologyv1alpha1.ResourceInfo{
 							Name:        "memory",
 							Available:   *resource.NewQuantity(1024, resource.DecimalSI),
 							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
-							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(2048, resource.DecimalSI),
 						},
 					},
 				},
@@ -270,7 +282,7 @@ func TestResourcesAggregator(t *testing.T) {
 			log.Printf("result=%+v", res)
 			log.Printf("expected=%+v", expected)
 			log.Printf("diff=%s", cmp.Diff(res, expected))
-			So(cmp.Equal(res, expected), ShouldBeFalse)
+			So(cmp.Equal(res, expected), ShouldBeTrue)
 		})
 	})
 
@@ -354,7 +366,17 @@ func TestResourcesAggregator(t *testing.T) {
 			},
 		}
 
-		resAggr = NewResourcesAggregatorFromData(&fakeTopo, availRes)
+		memoryResourcesCapacity := utils.MemoryResourcePerNUMA{
+			0: map[corev1.ResourceName]int64{
+				corev1.ResourceMemory: 2048,
+			},
+			1: map[corev1.ResourceName]int64{
+				corev1.ResourceMemory:                2048,
+				corev1.ResourceName("hugepages-2Mi"): 2048,
+			},
+		}
+
+		resAggr = NewResourcesAggregatorFromData(&fakeTopo, availRes, memoryResourcesCapacity)
 
 		Convey("When aggregating resources", func() {
 			podRes := []PodResources{
@@ -420,7 +442,7 @@ func TestResourcesAggregator(t *testing.T) {
 							Name:        "memory",
 							Available:   *resource.NewQuantity(1024, resource.DecimalSI),
 							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
-							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(2048, resource.DecimalSI),
 						},
 					},
 				},
@@ -460,13 +482,13 @@ func TestResourcesAggregator(t *testing.T) {
 							Name:        "hugepages-2Mi",
 							Available:   *resource.NewQuantity(512, resource.DecimalSI),
 							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
-							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(2048, resource.DecimalSI),
 						},
 						topologyv1alpha1.ResourceInfo{
 							Name:        "memory",
 							Available:   *resource.NewQuantity(512, resource.DecimalSI),
 							Allocatable: *resource.NewQuantity(1024, resource.DecimalSI),
-							Capacity:    *resource.NewQuantity(1024, resource.DecimalSI),
+							Capacity:    *resource.NewQuantity(2048, resource.DecimalSI),
 						},
 					},
 				},

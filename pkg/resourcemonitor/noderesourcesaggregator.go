@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 
+	"sigs.k8s.io/node-feature-discovery/pkg/utils"
 	"sigs.k8s.io/node-feature-discovery/source"
 )
 
@@ -42,9 +43,10 @@ const (
 type nodeResources struct {
 	perNUMAAllocatable map[int]map[v1.ResourceName]int64
 	// mapping: resourceName -> resourceID -> nodeID
-	resourceID2NUMAID    map[string]map[string]int
-	topo                 *ghw.TopologyInfo
-	reservedCPUIDPerNUMA map[int][]string
+	resourceID2NUMAID              map[string]map[string]int
+	topo                           *ghw.TopologyInfo
+	reservedCPUIDPerNUMA           map[int][]string
+	memoryResourcesCapacityPerNUMA utils.MemoryResourcePerNUMA
 }
 
 type resourceData struct {
@@ -63,6 +65,11 @@ func NewResourcesAggregator(podResourceClient podresourcesapi.PodResourcesLister
 		return nil, err
 	}
 
+	memoryResourcesCapacityPerNUMA, err := getMemoryResourcesCapacity()
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPodResourcesTimeout)
 	defer cancel()
 
@@ -72,17 +79,18 @@ func NewResourcesAggregator(podResourceClient podresourcesapi.PodResourcesLister
 		return nil, fmt.Errorf("can't receive response: %v.Get(_) = _, %w", podResourceClient, err)
 	}
 
-	return NewResourcesAggregatorFromData(topo, resp), nil
+	return NewResourcesAggregatorFromData(topo, resp, memoryResourcesCapacityPerNUMA), nil
 }
 
 // NewResourcesAggregatorFromData is used to aggregate resource information based on the received data from underlying hardware and podresource API
-func NewResourcesAggregatorFromData(topo *ghw.TopologyInfo, resp *podresourcesapi.AllocatableResourcesResponse) ResourcesAggregator {
+func NewResourcesAggregatorFromData(topo *ghw.TopologyInfo, resp *podresourcesapi.AllocatableResourcesResponse, memoryResourceCapacity utils.MemoryResourcePerNUMA) ResourcesAggregator {
 	allDevs := getContainerDevicesFromAllocatableResources(resp, topo)
 	return &nodeResources{
-		topo:                 topo,
-		resourceID2NUMAID:    makeResourceMap(len(topo.Nodes), allDevs),
-		perNUMAAllocatable:   makeNodeAllocatable(allDevs, resp.GetMemory()),
-		reservedCPUIDPerNUMA: makeReservedCPUMap(topo.Nodes, allDevs),
+		topo:                           topo,
+		resourceID2NUMAID:              makeResourceMap(len(topo.Nodes), allDevs),
+		perNUMAAllocatable:             makeNodeAllocatable(allDevs, resp.GetMemory()),
+		reservedCPUIDPerNUMA:           makeReservedCPUMap(topo.Nodes, allDevs),
+		memoryResourcesCapacityPerNUMA: memoryResourceCapacity,
 	}
 }
 
@@ -93,18 +101,33 @@ func (noderesourceData *nodeResources) Aggregate(podResData []PodResources) topo
 		nodeRes, ok := noderesourceData.perNUMAAllocatable[nodeID]
 		if ok {
 			perNuma[nodeID] = make(map[v1.ResourceName]*resourceData)
-			for resName, resCap := range nodeRes {
+			for resName, allocatable := range nodeRes {
 				if resName == "cpu" {
 					perNuma[nodeID][resName] = &resourceData{
-						allocatable: resCap,
-						available:   resCap,
-						capacity:    resCap + int64(len(noderesourceData.reservedCPUIDPerNUMA[nodeID])),
+						allocatable: allocatable,
+						available:   allocatable,
+						capacity:    allocatable + int64(len(noderesourceData.reservedCPUIDPerNUMA[nodeID])),
+					}
+				} else if resName == v1.ResourceMemory || strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix) { // handle memory and hugepages
+					var capacity int64
+					if _, ok := noderesourceData.memoryResourcesCapacityPerNUMA[nodeID]; !ok {
+						capacity = allocatable
+					} else if _, ok := noderesourceData.memoryResourcesCapacityPerNUMA[nodeID][resName]; !ok {
+						capacity = allocatable
+					} else {
+						capacity = noderesourceData.memoryResourcesCapacityPerNUMA[nodeID][resName]
+					}
+
+					perNuma[nodeID][resName] = &resourceData{
+						allocatable: allocatable,
+						available:   allocatable,
+						capacity:    capacity,
 					}
 				} else {
 					perNuma[nodeID][resName] = &resourceData{
-						allocatable: resCap,
-						available:   resCap,
-						capacity:    resCap,
+						allocatable: allocatable,
+						available:   allocatable,
+						capacity:    allocatable,
 					}
 				}
 			}
@@ -403,4 +426,28 @@ func (noderesourceData *nodeResources) updateMemoryAvailable(numaData map[int]ma
 			requestedSize = 0
 		}
 	}
+}
+
+func getMemoryResourcesCapacity() (map[int]map[v1.ResourceName]int64, error) {
+	handler := &utils.Handle{}
+	memoryResources, err := utils.GetMemoryResourceCounters(handler)
+	if err != nil {
+		return nil, err
+	}
+
+	capacity := map[int]map[v1.ResourceName]int64{}
+	for numaID, resources := range memoryResources {
+		if _, ok := capacity[numaID]; !ok {
+			capacity[numaID] = map[v1.ResourceName]int64{}
+		}
+
+		for resourceName, value := range resources {
+			if _, ok := capacity[numaID][resourceName]; !ok {
+				capacity[numaID][resourceName] = 0
+			}
+			capacity[numaID][resourceName] += value
+		}
+	}
+
+	return capacity, nil
 }
