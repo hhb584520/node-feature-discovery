@@ -162,11 +162,11 @@ func (resMon *PodResourcesScanner) Scan() ([]PodResources, error) {
 			}
 
 			for _, device := range container.GetDevices() {
-				topology := getTopology(device.GetTopology())
+				numaNodesIDs := getNumaNodeIds(device.GetTopology())
 				contRes.Resources = append(contRes.Resources, ResourceInfo{
-					Name:     v1.ResourceName(device.ResourceName),
-					Data:     device.DeviceIds,
-					Topology: topology,
+					Name:        v1.ResourceName(device.ResourceName),
+					Data:        device.DeviceIds,
+					NumaNodeIds: numaNodesIDs,
 				})
 			}
 
@@ -175,11 +175,11 @@ func (resMon *PodResourcesScanner) Scan() ([]PodResources, error) {
 					continue
 				}
 
-				topology := getTopology(block.GetTopology())
+				topology := getNumaNodeIds(block.GetTopology())
 				contRes.Resources = append(contRes.Resources, ResourceInfo{
-					Name:     v1.ResourceName(block.MemoryType),
-					Data:     []string{fmt.Sprintf("%d", block.GetSize_())},
-					Topology: topology,
+					Name:        v1.ResourceName(block.MemoryType),
+					Data:        []string{fmt.Sprintf("%d", block.GetSize_())},
+					NumaNodeIds: topology,
 				})
 			}
 
@@ -210,18 +210,16 @@ func hasDevice(podResource *podresourcesapi.PodResources) bool {
 	return false
 }
 
-func getTopology(topologyInfo *podresourcesapi.TopologyInfo) []int {
+func getNumaNodeIds(topologyInfo *podresourcesapi.TopologyInfo) []int {
 	if topologyInfo == nil {
 		return nil
 	}
 
 	var topology []int
 	for _, node := range topologyInfo.Nodes {
-		if node == nil {
-			continue
+		if node != nil {
+			topology = append(topology, int(node.ID))
 		}
-
-		topology = append(topology, int(node.ID))
 	}
 
 	return topology

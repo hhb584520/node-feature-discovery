@@ -25,7 +25,6 @@ import (
 
 	"github.com/jaypipes/ghw"
 	topologyv1alpha1 "github.com/k8stopologyawareschedwg/noderesourcetopology-api/pkg/apis/topology/v1alpha1"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
@@ -102,13 +101,14 @@ func (noderesourceData *nodeResources) Aggregate(podResData []PodResources) topo
 		if ok {
 			perNuma[nodeID] = make(map[v1.ResourceName]*resourceData)
 			for resName, allocatable := range nodeRes {
-				if resName == "cpu" {
+				switch {
+				case resName == "cpu":
 					perNuma[nodeID][resName] = &resourceData{
 						allocatable: allocatable,
 						available:   allocatable,
 						capacity:    allocatable + int64(len(noderesourceData.reservedCPUIDPerNUMA[nodeID])),
 					}
-				} else if resName == v1.ResourceMemory || strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix) { // handle memory and hugepages
+				case resName == v1.ResourceMemory, strings.HasPrefix(string(resName), v1.ResourceHugePagesPrefix):
 					var capacity int64
 					if _, ok := noderesourceData.memoryResourcesCapacityPerNUMA[nodeID]; !ok {
 						capacity = allocatable
@@ -123,7 +123,7 @@ func (noderesourceData *nodeResources) Aggregate(podResData []PodResources) topo
 						available:   allocatable,
 						capacity:    capacity,
 					}
-				} else {
+				default:
 					perNuma[nodeID][resName] = &resourceData{
 						allocatable: allocatable,
 						available:   allocatable,
@@ -270,11 +270,12 @@ func makeNodeAllocatable(devices []*podresourcesapi.ContainerDevices, memoryBloc
 	for _, block := range memoryBlocks {
 		memoryType := v1.ResourceName(block.GetMemoryType())
 
-		if block.GetTopology() == nil {
+		blockTopology := block.GetTopology()
+		if blockTopology == nil {
 			continue
 		}
 
-		for _, node := range block.GetTopology().GetNodes() {
+		for _, node := range blockTopology.GetNodes() {
 			nodeID := int(node.GetID())
 			if _, ok := perNUMAAllocatable[nodeID]; !ok {
 				perNUMAAllocatable[nodeID] = make(map[v1.ResourceName]int64)
@@ -387,37 +388,51 @@ func getCPUs(devices []*podresourcesapi.ContainerDevices) map[string]int {
 	return cpuMap
 }
 
-// updateMemoryAllocatable computes the actual amount of the allocatable memory.
-// This function assumes the allocatable resources are initialized to be equal to the capacity.
+// updateMemoryAvailable computes the actual amount of the available memory.
+// This function assumes the available resources are initialized to be equal to the capacity.
 func (noderesourceData *nodeResources) updateMemoryAvailable(numaData map[int]map[v1.ResourceName]*resourceData, ri ResourceInfo) {
-	if len(ri.Topology) == 0 {
-		klog.Warningf("failed to get the device %q NUMA nodes", string(ri.Name))
+	if len(ri.NumaNodeIds) == 0 {
+		klog.Warningf("no NUMA nodes information is available for device %q", ri.Name)
 		return
 	}
 
 	if len(ri.Data) != 1 {
-		klog.Warningf("failed to get the device %q size", string(ri.Name))
+		klog.Warningf("no size information is available for the device %q", string(ri.Name))
 		return
 	}
 
-	requestedSize, _ := strconv.ParseInt(ri.Data[0], 10, 64)
-	for _, numaNodeID := range ri.Topology {
+	requestedSize, err := strconv.ParseInt(ri.Data[0], 10, 64)
+	if err != nil {
+		klog.Errorf("failed to parse resource requested size: %w", err)
+		return
+	}
+
+	for _, numaNodeID := range ri.NumaNodeIds {
 		if requestedSize == 0 {
 			return
 		}
 
 		if _, ok := numaData[numaNodeID]; !ok {
-			return
+			klog.Warningf("Failed to find NUMA node ID %d under the node topology", numaNodeID)
+			continue
 		}
 
 		if _, ok := numaData[numaNodeID][ri.Name]; !ok {
+			klog.Warningf("Failed to find resource %q under the node topology", ri.Name)
 			return
 		}
 
 		if numaData[numaNodeID][ri.Name].available == 0 {
+			klog.V(4).Infof("No available memory on the node %d for the resource %q", numaNodeID, ri.Name)
 			continue
 		}
 
+		// For the container pinned only to one NUMA node the calculation is pretty straight forward, the code will
+		// just reduce the specified NUMA node free size
+		// For the container pinned to multiple NUMA nodes, the code will reduce the free size of NUMA nodes
+		// in ascending order. For example, for a container pinned to NUMA node 0 and NUMA node 1,
+		// it will first reduce the memory of the NUMA node 0 to zero, and after the remaining
+		// amount of memory from the NUMA node 1.
 		if requestedSize >= numaData[numaNodeID][ri.Name].available {
 			requestedSize -= numaData[numaNodeID][ri.Name].available
 			numaData[numaNodeID][ri.Name].available = 0
@@ -429,8 +444,7 @@ func (noderesourceData *nodeResources) updateMemoryAvailable(numaData map[int]ma
 }
 
 func getMemoryResourcesCapacity() (map[int]map[v1.ResourceName]int64, error) {
-	handler := &utils.Handle{}
-	memoryResources, err := utils.GetMemoryResourceCounters(handler)
+	memoryResources, err := utils.GetMemoryResourceCounters()
 	if err != nil {
 		return nil, err
 	}
