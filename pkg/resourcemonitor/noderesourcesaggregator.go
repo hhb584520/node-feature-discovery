@@ -45,7 +45,7 @@ type nodeResources struct {
 	resourceID2NUMAID              map[string]map[string]int
 	topo                           *ghw.TopologyInfo
 	reservedCPUIDPerNUMA           map[int][]string
-	memoryResourcesCapacityPerNUMA utils.MemoryResourcePerNUMA
+	memoryResourcesCapacityPerNUMA utils.NumaMemoryResources
 }
 
 type resourceData struct {
@@ -82,7 +82,7 @@ func NewResourcesAggregator(podResourceClient podresourcesapi.PodResourcesLister
 }
 
 // NewResourcesAggregatorFromData is used to aggregate resource information based on the received data from underlying hardware and podresource API
-func NewResourcesAggregatorFromData(topo *ghw.TopologyInfo, resp *podresourcesapi.AllocatableResourcesResponse, memoryResourceCapacity utils.MemoryResourcePerNUMA) ResourcesAggregator {
+func NewResourcesAggregatorFromData(topo *ghw.TopologyInfo, resp *podresourcesapi.AllocatableResourcesResponse, memoryResourceCapacity utils.NumaMemoryResources) ResourcesAggregator {
 	allDevs := getContainerDevicesFromAllocatableResources(resp, topo)
 	return &nodeResources{
 		topo:                           topo,
@@ -443,13 +443,13 @@ func (noderesourceData *nodeResources) updateMemoryAvailable(numaData map[int]ma
 	}
 }
 
-func getMemoryResourcesCapacity() (map[int]map[v1.ResourceName]int64, error) {
-	memoryResources, err := utils.GetMemoryResourceCounters()
+func getMemoryResourcesCapacity() (utils.NumaMemoryResources, error) {
+	memoryResources, err := utils.GetNumaMemoryResources()
 	if err != nil {
 		return nil, err
 	}
 
-	capacity := map[int]map[v1.ResourceName]int64{}
+	capacity := make(utils.NumaMemoryResources)
 	for numaID, resources := range memoryResources {
 		if _, ok := capacity[numaID]; !ok {
 			capacity[numaID] = map[v1.ResourceName]int64{}

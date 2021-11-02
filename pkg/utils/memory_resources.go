@@ -24,124 +24,90 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"
 )
 
 var (
-	sysBusNodeDevices = "/sys/bus/node/devices"
+	sysBusNodeBasepath = "/sys/bus/node/devices"
 )
 
-const (
-	HugepageSize2Mi = 2048
-	HugepageSize1Gi = 1048576
-)
+// NumaMemoryResources contains information of the memory resources per NUMA
+// nodes of the system.
+type NumaMemoryResources map[int]MemoryResourceInfo
 
-type MemoryResourcePerNUMA map[int]map[v1.ResourceName]int64
+// MemoryResourceInfo holds information of memory resources per resource type.
+type MemoryResourceInfo map[v1.ResourceName]int64
 
-// GetMemoryResourceCounters returns total amount of memory and hugepages under NUMA nodes
-func GetMemoryResourceCounters() (MemoryResourcePerNUMA, error) {
-	numaNodeIDs, err := getNUMANodesIDs()
+// GetNumaMemoryResources returns total amount of memory and hugepages under NUMA nodes
+func GetNumaMemoryResources() (NumaMemoryResources, error) {
+	nodes, err := ioutil.ReadDir(sysBusNodeBasepath)
 	if err != nil {
 		return nil, err
 	}
 
-	memoryResources := make(MemoryResourcePerNUMA)
-	for _, numaNodeID := range numaNodeIDs {
-		memoryResources[numaNodeID] = map[v1.ResourceName]int64{}
-		numaNodeFolderName := fmt.Sprintf("node%d", numaNodeID)
+	memoryResources := make(NumaMemoryResources, len(nodes))
+	for _, n := range nodes {
+		numaNode := n.Name()
+		nodeID, err := strconv.Atoi(numaNode[4:])
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse NUMA node ID of %w", numaNode)
+		}
 
-		// get the NUMA node total memory
-		memInfoFilePath := filepath.Join(sysBusNodeDevices, numaNodeFolderName, "meminfo")
-		nodeTotalMemory, err := readTotalMemoryFromMeminfo(memInfoFilePath)
+		info := make(MemoryResourceInfo)
+
+		// Get total memory
+		nodeTotalMemory, err := readTotalMemoryFromMeminfo(filepath.Join(sysBusNodeBasepath, numaNode, "meminfo"))
 		if err != nil {
 			return nil, err
 		}
-		memoryResources[numaNodeID][v1.ResourceMemory] = nodeTotalMemory
+		info[v1.ResourceMemory] = nodeTotalMemory
 
-		// get the NUMA node hugepages
-		hugepagesFolderPath := filepath.Join(sysBusNodeDevices, numaNodeFolderName, "hugepages")
-		hugepageSizes, err := getHugepagesSizes(hugepagesFolderPath)
+		// Get hugepages
+		hugepageCounts, err := getHugepagesCounts(filepath.Join(sysBusNodeBasepath, numaNode, "hugepages"))
 		if err != nil {
 			return nil, err
 		}
-
-		for _, hugepageSize := range hugepageSizes {
-			hugepagesSizeFolderName := fmt.Sprintf("hugepages-%dkB", hugepageSize)
-			hugepagesTotalFile := filepath.Join(
-				hugepagesFolderPath,
-				hugepagesSizeFolderName,
-				"nr_hugepages",
-			)
-			nodeHugepagesTotal, err := readIntFromFile(hugepagesTotalFile)
-			if err != nil {
-				return nil, err
-			}
-
-			hugepagesResource := hugepageResourceNameFromSize(hugepageSize)
-			// save the total amount of memory allocated for hugepages in bytes
-			memoryResources[numaNodeID][hugepagesResource] = int64(nodeHugepagesTotal * hugepageSize * 1024)
+		if nr, ok := hugepageCounts["2048kB"]; ok {
+			info[v1.ResourceHugePagesPrefix+"hugepages-2Mi"] = nr * 2048 * 1024
 		}
+		if nr, ok := hugepageCounts["1048576kB"]; ok {
+			info[v1.ResourceHugePagesPrefix+"hugepages-1Gi"] = nr * 1048576 * 1024
+		}
+
+		memoryResources[nodeID] = info
 	}
 
 	return memoryResources, nil
 }
 
-func getNUMANodesIDs() ([]int, error) {
-	entries, err := ioutil.ReadDir(sysBusNodeDevices)
-	if err != nil {
-		return nil, err
-	}
-
-	var numaNodesIDs []int
-	for _, entry := range entries {
-		entryName := entry.Name()
-		if entry.IsDir() && strings.HasPrefix(entryName, "node") {
-			nodeID, err := strconv.Atoi(entryName[4:])
-			if err != nil {
-				klog.Warningf("cannot detect the node ID for %q", entryName)
-				continue
-			}
-
-			numaNodesIDs = append(numaNodesIDs, nodeID)
-		}
-	}
-
-	return numaNodesIDs, nil
-}
-
-func getHugepagesSizes(path string) ([]int, error) {
+func getHugepagesCounts(path string) (map[string]int64, error) {
 	entries, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var hugepageSizes []int
+	var hugepagesCounts map[string]int64
 	for _, entry := range entries {
-		entryName := entry.Name()
-		var hugepageSizeKB int
-		if n, err := fmt.Sscanf(entryName, "hugepages-%dkB", &hugepageSizeKB); n != 1 || err != nil {
-			klog.Warningf("malformed hugepages entry %q", entryName)
+		split := strings.SplitN(entry.Name(), "-", 2)
+		if len(split) != 2 || split[0] != "hugepages" {
+			klog.Warningf("malformed hugepages entry %q", entry.Name())
 			continue
 		}
 
-		hugepageSizes = append(hugepageSizes, hugepageSizeKB)
+		data, err := ioutil.ReadFile(filepath.Join(path, entry.Name(), "nr_hugepages"))
+		if err != nil {
+			return nil, err
+		}
+
+		nr, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		hugepagesCounts[split[0]] = nr
 	}
 
-	return hugepageSizes, nil
-}
-
-func hugepageResourceNameFromSize(sizeKB int) v1.ResourceName {
-	qty := resource.NewQuantity(int64(sizeKB*1024), resource.BinarySI)
-	return v1.ResourceName("hugepages-" + qty.String())
-}
-
-func readIntFromFile(path string) (int, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return -1, err
-	}
-	return strconv.Atoi(strings.TrimSpace(string(data)))
+	return hugepagesCounts, nil
 }
 
 func readTotalMemoryFromMeminfo(path string) (int64, error) {
@@ -151,23 +117,21 @@ func readTotalMemoryFromMeminfo(path string) (int64, error) {
 	}
 
 	for _, line := range strings.Split(string(data), "\n") {
-		if !strings.Contains(line, "MemTotal") {
+		split := strings.SplitN(line, ":", 2)
+		if len(split) != 2 {
 			continue
 		}
 
-		memTotal := strings.Split(line, ":")
-		if len(memTotal) != 2 {
-			return -1, fmt.Errorf("MemTotal has unexpected format: %s", line)
-		}
+		if split[0] == "MemTotal" {
+			memValue := strings.Trim(split[1], "\t\n kB")
+			convertedValue, err := strconv.ParseInt(memValue, 10, 64)
+			if err != nil {
+				return -1, fmt.Errorf("failed to convert value: %v", memValue)
+			}
 
-		memValue := strings.Trim(memTotal[1], "\t\n kB")
-		convertedValue, err := strconv.ParseInt(memValue, 10, 64)
-		if err != nil {
-			return -1, fmt.Errorf("failed to convert value: %v", memValue)
+			// return information in bytes
+			return 1024 * convertedValue, nil
 		}
-
-		// return information in bytes
-		return 1024 * convertedValue, nil
 	}
 
 	return -1, fmt.Errorf("failed to find MemTotal field under the file %q", path)
