@@ -25,6 +25,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+	resourcehelper "k8s.io/kubernetes/pkg/apis/core/helper"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
@@ -63,15 +65,12 @@ func GetNumaMemoryResources() (NumaMemoryResources, error) {
 		info[v1.ResourceMemory] = nodeTotalMemory
 
 		// Get hugepages
-		hugepageCounts, err := getHugepagesCounts(filepath.Join(sysBusNodeBasepath, numaNode, "hugepages"))
+		hugepageBytes, err := getHugepagesBytes(filepath.Join(sysBusNodeBasepath, numaNode, "hugepages"))
 		if err != nil {
 			return nil, err
 		}
-		if nr, ok := hugepageCounts["2048kB"]; ok {
-			info[v1.ResourceHugePagesPrefix+"hugepages-2Mi"] = nr * 2048 * 1024
-		}
-		if nr, ok := hugepageCounts["1048576kB"]; ok {
-			info[v1.ResourceHugePagesPrefix+"hugepages-1Gi"] = nr * 1048576 * 1024
+		for n, s := range hugepageBytes {
+			info[n] = s
 		}
 
 		memoryResources[nodeID] = info
@@ -80,18 +79,24 @@ func GetNumaMemoryResources() (NumaMemoryResources, error) {
 	return memoryResources, nil
 }
 
-func getHugepagesCounts(path string) (map[string]int64, error) {
+func getHugepagesBytes(path string) (MemoryResourceInfo, error) {
 	entries, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var hugepagesCounts map[string]int64
+	hugepagesBytes := make(MemoryResourceInfo)
 	for _, entry := range entries {
 		split := strings.SplitN(entry.Name(), "-", 2)
 		if len(split) != 2 || split[0] != "hugepages" {
 			klog.Warningf("malformed hugepages entry %q", entry.Name())
 			continue
+		}
+
+		// Use Ki instead of kB
+		q, err := resource.ParseQuantity(strings.Replace(split[1], "kB", "Ki", 1))
+		if err != nil {
+			return nil, err
 		}
 
 		data, err := ioutil.ReadFile(filepath.Join(path, entry.Name(), "nr_hugepages"))
@@ -104,10 +109,12 @@ func getHugepagesCounts(path string) (map[string]int64, error) {
 			return nil, err
 		}
 
-		hugepagesCounts[split[0]] = nr
+		size, _ := q.AsInt64()
+		name := v1.ResourceName(resourcehelper.HugePageResourceName(q))
+		hugepagesBytes[name] = nr*size
 	}
 
-	return hugepagesCounts, nil
+	return hugepagesBytes, nil
 }
 
 func readTotalMemoryFromMeminfo(path string) (int64, error) {
