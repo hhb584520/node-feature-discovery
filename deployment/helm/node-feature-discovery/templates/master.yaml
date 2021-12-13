@@ -62,7 +62,11 @@ spec:
             {{- if .Values.master.extraLabelNs | empty | not }}
             - "--extra-label-ns={{- join "," .Values.master.extraLabelNs }}"
             {{- end }}
+            {{- if .Values.master.featureRulesController | kindIs "invalid" | not }}
             - "-featurerules-controller={{ .Values.master.featureRulesController }}"
+            {{- else if .Values.master.instance | empty | not }}
+            - "-featurerules-controller=false"
+            {{- end }}
 ## Enable TLS authentication
 ## The example below assumes having the root certificate named ca.crt stored in
 ## a ConfigMap named nfd-ca-cert, and, the TLS authentication credentials stored
