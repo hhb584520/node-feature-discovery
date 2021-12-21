@@ -6,15 +6,6 @@ image:
   # tag
 imagePullSecrets: []
 
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name:
-
 nameOverride: ""
 fullnameOverride: ""
 
@@ -38,6 +29,18 @@ master:
     readOnlyRootFilesystem: true
     runAsNonRoot: true
     # runAsUser: 1000
+
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+    # Annotations to add to the service account
+    annotations: {}
+    # The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name:
+
+  rbac:
+    create: true
 
   service:
     type: ClusterIP
@@ -419,13 +422,3 @@ topologyUpdater:
   tolerations: []
   annotations: {}
   affinity: {}
-
-## RBAC parameteres
-## https://kubernetes.io/docs/reference/access-authn-authz/rbac/
-##
-rbac:
-  create: true
-  serviceAccountName:
-  ## Annotations for the Service Account
-  ##
-  serviceAccountAnnotations: {}

@@ -1,4 +1,4 @@
-{{- if .Values.rbac.create }}
+{{- if .Values.master.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -11,7 +11,7 @@ roleRef:
   name: {{ include "node-feature-discovery.fullname" . }}
 subjects:
 - kind: ServiceAccount
-  name: {{ include "node-feature-discovery.serviceAccountName" . }}
+  name: {{ include "node-feature-discovery.master.serviceAccountName" . }}
   namespace: {{ $.Release.Namespace }}
 {{- end }}
 
