@@ -56,7 +56,7 @@ Create the name of the service account to use
 */}}
 {{- define "node-feature-discovery.master.serviceAccountName" -}}
 {{- if .Values.master.serviceAccount.create -}}
-    {{ default (include "node-feature-discovery.fullname" .) .Values.master.serviceAccount.name }}
+    {{ default (printf "%s-master" (include "node-feature-discovery.fullname" .)) .Values.master.serviceAccount.name }}
 {{- else -}}
     {{ default "default" .Values.master.serviceAccount.name }}
 {{- end -}}
