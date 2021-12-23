@@ -41,28 +41,38 @@ Consider the following referential example:
 apiVersion: nfd.k8s-sigs.io/v1alpha1
 kind: NodeFeatureRule
 metadata:
-  name: my-rule-object
+  name: my-sample-rule-object
 spec:
   rules:
-    - name: "my sgx feature rule"
+    - name: "my sample rule"
       labels:
-        "my-sgx-feature": "true"
+        "my-sample-feature": "true"
       matchFeatures:
-        - feature: cpu.cpuid
+        - feature: kernel.loadedmodule
           matchExpressions:
-            SGX: {op: Exists}
+            dummy: {op: Exists}
         - feature: kernel.config
           matchExpressions:
-            X86_SGX: {op: In, value: ["y"]}
+            X86: {op: In, value: ["y"]}
 ```
 
 It specifies one rule which creates node label
-`feature.node.kubenernetes.io/my-sgx-feature=true` if both of the following
+`feature.node.kubenernetes.io/my-sample-feature=true` if both of the following
 conditions are true (`matchFeatures` implements a logical AND over the
 matchers):
 
-- the CPU has SGX capability
-- X86_SGX option has been enabled in the kernel
+- The `dummy` network driver module has been loaded
+- X86 option in kernel config is set to `=y`
+
+Create a NodeFeatureRule with a yaml file:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/{{ site.release }}/examples/nodefeaturerule.yaml
+```
+
+Now, on X86 platforms the feature label appears after doing `modprobe dummy` on
+a system and correspondingly the label is removed after `rmmod dummy`. Note a
+re-labeling delay up to the sleep-interval of nfd-worker (1 minute by default).
 
 ### NodeFeatureRule controller
 
@@ -89,7 +99,9 @@ extensions, allowing the creation of new user-specific features and even
 overriding built-in labels.
 
 The *local* feature source has two methods for detecting features, hooks and
-feature files.
+feature files. The features discovered by the local source can further be used
+in label rules specified in [NodeFeatureRule](#nodefeaturerule-custom-resource)
+objects and the [*custom* feature source](#custom-feature-source).
 
 **NOTE:** Be careful when creating and/or updating hook or feature files while
 NFD is running. In order to avoid race conditions you should write into a
@@ -206,28 +218,32 @@ core:
   labelSources: ["custom"]
 sources:
   custom:
-    - name: "my sgx feature rule"
+    - name: "my sample rule"
       labels:
-        "my-sgx-feature": "true"
+        "my-sample-feature": "true"
       matchFeatures:
-        - feature: cpu.cpuid
+        - feature: kernel.loadedmodule
           matchExpressions:
-            SGX: {op: Exists}
+            dummy: {op: Exists}
         - feature: kernel.config
           matchExpressions:
-            X86_SGX: {op: In, value: ["y"]}
+            X86: {op: In, value: ["y"]}
 ```
 
 It specifies one rule which creates node label
-`feature.node.kubenernetes.io/my-sgx-feature=true` if both of the following
+`feature.node.kubenernetes.io/my-sample-feature=true` if both of the following
 conditions are true (`matchFeatures` implements a logical AND over the
 matchers):
 
-- the CPU has SGX capability
-- X86_SGX option has been enabled in the kernel
+- The `dummy` network driver module has been loaded
+- X86 option in kernel config is set to `=y`
 
 In addition, the configuration only enables the *custom* source, disabling all
 built-in labels.
+
+Now, on X86 platforms the feature label appears after doing `modprobe dummy` on
+a system and correspondingly the label is removed after `rmmod dummy`. Note a
+re-labeling delay up to the sleep-interval of nfd-worker (1 minute by default).
 
 ### Additional configuration directory
 
@@ -790,6 +806,14 @@ sources:
   - ...
   - <custom feature M>
 ```
+
+The label is constructed by adding `custom-` prefix to the name field, label
+value defaults to `true` if not specified in the rule spec:
+
+```
+feature.node.kubernetes.io/custom-<name> = <value>
+```
+
 
 ### Matching process
 
