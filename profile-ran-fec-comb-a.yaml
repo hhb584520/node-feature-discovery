@@ -2,6 +2,7 @@ apiVersion: nfd.kubernetes.test/v1alpha1
 kind: LabelRule
 metadata:
   name: npd-profile-example-1
+  namespace: node-feature-discovery
 spec:
   rules:
   #
