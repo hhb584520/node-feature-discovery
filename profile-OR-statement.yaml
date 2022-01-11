@@ -1,0 +1,31 @@
+apiVersion: nfd.kubernetes.test/v1alpha1
+kind: LabelRule
+metadata:
+  name: npd-or-profile-example-1
+spec:
+  rules:
+  # The following represents a purely artificial example of what a profile spec might look like.
+  # Not supposed to work (i.e. match) in any real-life deployment.
+  - name: profile.node.kubernetes.io/OR-1
+    matchAll:
+    # Check that AVX instruction is available
+    - cpu.cpuid:
+        "ADX": { op: Exists }
+        "AESNI": { op: Exists }
+        "AVX": { op: Exists }
+        "AVX2": { op: Exists }
+        "AVX512BW": { op: Exists }
+        "AVX512CD": { op: Exists }
+        "AVX512DQ": { op: Exists }
+        "AVX512F": { op: Exists }
+        "AVX512VL": { op: Exists }
+        "FMA3": { op: Exists }
+        "HLE": { op: Exists }
+        "IBPB": { op: Exists }
+        "MPX": { op: Exists }
+        "RTM": { op: Exists }
+        "STIBP": { op: Exists }
+        "VMX": { op: Exists }
+    # Check that at least one PCI device with Intel as a vendor is present
+    - pci.device:
+        "vendor": { op: In, value: ["8086"] }

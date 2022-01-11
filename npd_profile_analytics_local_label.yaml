@@ -1,0 +1,16 @@
+apiVersion: nfd.kubernetes.test/v1alpha1
+kind: LabelRule
+metadata:
+  name: npd-profile-demo
+spec:
+  rules:
+  # The following represents a purely artificial example of what a profile spec might look like.
+  # Not supposed to work (i.e. match) in any real-life deployment.
+  - name: profile.node.kubernetes.io/video-analytics-comb-a
+    matchAll:
+    # Analytics
+    - local.label:
+        "feature.node.kubernetes.io/cpu-cpuid.AMXINT8": { op: Exists }
+        "feature.node.kubernetes.io/cpu-cpuid.AMXTILE": { op: Exists }
+        "feature.node.kubernetes.io/cpu-cpuid.AVX512BF16": { op: Exists }
+        "feature.node.kubernetes.io/cpu-cpuid.AVX512VNNI": { op: Exists }
